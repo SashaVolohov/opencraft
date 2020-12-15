@@ -13,7 +13,15 @@ int grass_top_texture;
 int grass_side_texture;
 int dirt_texture;
 
-float jump_tmp = 0.0;
+float camera_z_in_jump;
+
+int timer = 0;
+
+float size = 20.f;
+
+int jump_tmp = 0;
+BOOL jump_down = FALSE;
+float jump_go[10] = {1.10, 1.20, 1.30, 1.40, 1.50, 1.60, 1.70, 1.80, 1.90, 1.95};
 
 BOOL is_jumping = FALSE;
 
@@ -127,7 +135,7 @@ void Player_Move()
     Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
                          ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
                          ,0.2);
-    Camera_AutoMoveByMouse(400, 400, 0.2);
+    Camera_AutoMoveByMouse(400, 300, 0.2);
 }
 
 void Game_Show()
@@ -146,8 +154,38 @@ void Game_Show()
 
     if(is_jumping)
     {
-        jump_tmp += 0.15;
-        camera.z += 0.15;
+        float ste = 2 * jump_go[jump_tmp];
+        printf("%f\n", ste);
+        camera.z = (camera_z_in_jump - 2)+(ste);
+        printf("%f\n", camera.z);
+        //Sleep(1000);
+        if(camera.x >= 0 && camera.x < 256 && camera.y >= 0 && camera.y < 256 && camera.z >= 0 && camera.z < 256)
+        {
+            if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0)
+            {
+                is_jumping = FALSE;
+                jump_down = FALSE;
+                timer = 3;
+                jump_tmp = 0;
+            }
+            if(!jump_down) jump_tmp++;
+            else jump_tmp--;
+            if(jump_tmp == 9) jump_down = TRUE;
+            if(jump_tmp == 0 && jump_down)
+            {
+                is_jumping = FALSE;
+                jump_down = FALSE;
+                timer = 3;
+                jump_tmp = 0;
+            }
+        }
+        else
+        {
+            is_jumping = FALSE;
+            jump_down = FALSE;
+            timer = 3;
+            jump_tmp = 0;
+        }
     }
     if(chunkx > 15 || chunky > 15 || camera.x < 0 || camera.y < 0 || cameraz <= 0 || chunkx < 0 || chunky < 0)
     {
@@ -164,16 +202,11 @@ void Game_Show()
     }
     if(chunkx <= 15 && chunky <= 15 && chunkx >= 0 && chunky >= 0)
     {
-        if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < 256 && camera.y > 0 && camera.y < 256 && cameraz > 0 && cameraz < 256 && !is_fly && ((int)camera.z - cameraz) == 1)
+        if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < 256 && camera.y > 0 && camera.y < 256 && cameraz > 0 && cameraz < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0)
         {
             is_jumping = TRUE;
+            camera_z_in_jump = camera.z;
         }
-    }
-    printf("%d, %d\n", cameraz, (int)camera.z);
-    if(jump_tmp > 1.0)
-    {
-        is_jumping = FALSE;
-        jump_tmp = 0;
     }
     if(!is_fly && !is_jumping && cameraz != camera.z + 1)
     {
@@ -291,20 +324,22 @@ void Game_Show()
     draw_cnt = dcnt;
 }
 
-void ShowFPS()
+void ShowDebugInfo()
 {
     static float framesPerSecond = 0.0f;
     static float lastTime = 0.0f;
+    static float fps = 0.0f;
     float currentTime = GetTickCount() * 0.001f;
     ++framesPerSecond;
     if(currentTime - lastTime > 1.0f)
     {
         lastTime = currentTime;
-        system("cls");
-        printf("FPS: %d\nBlocks rendered: %d\n", (int)framesPerSecond, draw_cnt);
+        fps = framesPerSecond;
         framesPerSecond = 0;
         draw_cnt = 0;
     }
+    system("cls");
+    printf("FPS: %d\nBlocks rendered: %d\nis_jumping = %s\n", (int)fps, draw_cnt, is_jumping ? "TRUE" : "FALSE");
 }
 
 int WINAPI WinMain(HINSTANCE hInstance,
@@ -339,7 +374,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
     hwnd = CreateWindowEx(0,
                           "Opencraft",
-                          "Opencraft Tech Test",
+                          "Opencraft rd-132211",
                           WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
@@ -391,9 +426,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
             SwapBuffers(hDC);
 
-            //ShowFPS();
+            //ShowDebugInfo();
+
+            printf("%f %f %f\n", camera.Xrot, camera.Yrot, camera.Zrot);
 
             theta += 0,1080000108;
+
+            timer--;
         }
     }
 
@@ -420,6 +459,39 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case WM_SETCURSOR:
             ShowCursor(FALSE);
+        break;
+
+        case WM_RBUTTONDOWN:
+            if(camera.x < 0 || camera.x >= 256 || camera.y < 0 || camera.y >= 256 || camera.z < 0 || camera.z >= 256) break;
+            float x = camera.x;
+            float y = camera.y;
+            float z = camera.z + 1.7;
+
+            int X, Y, Z, oldX, oldY, oldZ;
+            int dist = 0;
+            while(dist < 4)
+            {
+                dist++;
+
+                x += -sin(forblocksX/180*M_PI);
+                z += tan(forblocksX/180*M_PI);
+                y += -cos(forblocksY/180*M_PI);
+
+                int chunkx = x / 16;
+                int chunky = y / 16;
+                int dcx = 16*chunkx;
+                int dcy = 16*chunky;
+                X = x - dcx;
+                Y = y - dcy;
+                Z = z;
+
+                if(world[chunkx][chunky][X][Y][Z] != 0)
+                {
+                    world[chunkx][chunky][X][Y][Z] = 0;
+                    break;
+                }
+                oldX=X; oldY = Y; oldZ = Z;
+            }
         break;
 
         case WM_DESTROY:

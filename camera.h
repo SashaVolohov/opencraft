@@ -2,10 +2,11 @@
 #define CAMERA_H_INCLUDED
 
 int world[16][16][16][16][256];
+float forblocksX, forblocksY;
 
 struct SCamera{
     float x,y,z;
-    float Xrot, Zrot;
+    float Xrot, Yrot, Zrot, for_pb;
 } camera;
 
 void Camera_Apply();

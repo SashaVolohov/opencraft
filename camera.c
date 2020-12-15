@@ -4,7 +4,7 @@
 #include <windows.h>
 #include <math.h>
 
-struct SCamera camera = {128,128,45,0,0};
+struct SCamera camera = {128,128,45,0,0,0.0};
 
 void Camera_Apply()
 {
@@ -29,6 +29,11 @@ void Camera_AutoMoveByMouse(int centerX, int centerY, float speed)
     POINT cur;
     POINT base = {centerX, centerY};
     GetCursorPos(&cur);
+    forblocksX += (base.x - cur.x) / 4;
+    forblocksY += (base.y - cur.y) / 4;
+
+    if(forblocksY < -89.0) {forblocksY = -89.0;}
+    if(forblocksY > 89.0) {forblocksY = 89.0;}
     Camera_Rotation((base.y - cur.y) * speed, (base.x - cur.x) * speed);
     SetCursorPos(base.x, base.y);
 }
