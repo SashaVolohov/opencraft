@@ -2,7 +2,7 @@
 #define CAMERA_H_INCLUDED
 
 int world[16][16][16][16][256];
-float forblocksX, forblocksY;
+int width, height;
 
 struct SCamera{
     float x,y,z;

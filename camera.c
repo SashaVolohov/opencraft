@@ -29,13 +29,10 @@ void Camera_AutoMoveByMouse(int centerX, int centerY, float speed)
     POINT cur;
     POINT base = {centerX, centerY};
     GetCursorPos(&cur);
-    forblocksX += (base.x - cur.x) / 4;
-    forblocksY += (base.y - cur.y) / 4;
-
-    if(forblocksY < -89.0) {forblocksY = -89.0;}
-    if(forblocksY > 89.0) {forblocksY = 89.0;}
     Camera_Rotation((base.y - cur.y) * speed, (base.x - cur.x) * speed);
     SetCursorPos(base.x, base.y);
+    width = cur.x;
+    height = cur.y;
 }
 
 void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
@@ -70,6 +67,41 @@ void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
         }
         else if(world[chunkx][chunky][(int)x][(int)y][(int)camera.z] == 0 && world[chunkx][chunky][(int)x][(int)y][(int)camera.z+1] == 0)
         {
+            float ccx = (int)new_cx;
+            float ccy = (int)new_cy;
+            if(new_cx < camera.x && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 0)
+            {
+                if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+            }
+            if(new_cx > camera.x && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 0)
+            {
+                if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
+            }
+            if(new_cy < camera.y && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 0)
+            {
+                if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+            }
+            if(new_cy > camera.y && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 0)
+            {
+                if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
+            }
+
+            if(new_cx < camera.x && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z + 1) != 0)
+            {
+                if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+            }
+            if(new_cx > camera.x && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z + 1) != 0)
+            {
+                if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
+            }
+            if(new_cy < camera.y && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z + 1) != 0)
+            {
+                if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+            }
+            if(new_cy > camera.y && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z + 1) != 0)
+            {
+                if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
+            }
             camera.x = new_cx;
             camera.y = new_cy;
         }

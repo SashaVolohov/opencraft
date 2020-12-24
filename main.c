@@ -1,5 +1,10 @@
 #include <windows.h>
+#include <direct.h>
 #include <gl/gl.h>
+#include <gl/glu.h>
+#include <io.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "camera.h"
 
@@ -85,6 +90,7 @@ void GenerateNewWorld()
             GenerateNewChunk(x, y);
         }
     }
+    SaveWorld();
 }
 void LoadTexture(char *filename, int *target)
 {
@@ -116,7 +122,37 @@ void Game_Init()
     glEnable(GL_LIGHT0);
     glEnable(GL_COLOR_MATERIAL);
     glEnable(GL_NORMALIZE);
-    GenerateNewWorld();
+    TCHAR buffer[MAX_PATH];
+    GetCurrentDirectory(sizeof(buffer), buffer);
+    char path[MAX_PATH];
+    sprintf(path, "%s\\saves\\world", buffer);
+    if(DirectoryExists(path))
+    {
+        FILE *level;
+        FILE *file_world;
+
+        sprintf(path, "%s\\saves\\world\\level.dat", buffer);
+
+        level = fopen(path, "r");
+
+        if(level != NULL)
+        {
+            fread(&camera, 1, sizeof(camera), level);
+            fclose(level);
+        }
+
+        sprintf(path, "%s\\saves\\world\\world.ocw", buffer);
+
+        file_world = fopen(path, "r");
+
+        if(file_world != NULL)
+        {
+            fread(world, 1, sizeof(world), file_world);
+            fclose(file_world);
+        }
+
+    }
+    else GenerateNewWorld();
 }
 void WndResize(int x, int y)
 {
@@ -155,23 +191,27 @@ void Game_Show()
     if(is_jumping)
     {
         float ste = 2 * jump_go[jump_tmp];
-        printf("%f\n", ste);
         camera.z = (camera_z_in_jump - 2)+(ste);
-        printf("%f\n", camera.z);
-        //Sleep(1000);
         if(camera.x >= 0 && camera.x < 256 && camera.y >= 0 && camera.y < 256 && camera.z >= 0 && camera.z < 256)
         {
-            if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0)
+            if(!jump_down) jump_tmp++;
+            else jump_tmp--;
+            if(jump_tmp == 9) jump_down = TRUE;
+            if(jump_tmp == 0 && jump_down)
             {
                 is_jumping = FALSE;
                 jump_down = FALSE;
                 timer = 3;
                 jump_tmp = 0;
             }
-            if(!jump_down) jump_tmp++;
-            else jump_tmp--;
-            if(jump_tmp == 9) jump_down = TRUE;
-            if(jump_tmp == 0 && jump_down)
+            if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0)
+            {
+                is_jumping = FALSE;
+                jump_down = FALSE;
+                timer = 3;
+                jump_tmp = 0;
+            }
+            if(jump_down == FALSE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z + 2] != 0)
             {
                 is_jumping = FALSE;
                 jump_down = FALSE;
@@ -187,7 +227,7 @@ void Game_Show()
             jump_tmp = 0;
         }
     }
-    if(chunkx > 15 || chunky > 15 || camera.x < 0 || camera.y < 0 || cameraz <= 0 || chunkx < 0 || chunky < 0)
+    if(chunkx > 15 || chunky > 15 || camera.x < 0 || camera.y < 0 || cameraz <= -1 || chunkx < 0 || chunky < 0)
     {
         if(!is_jumping)
         {
@@ -202,7 +242,7 @@ void Game_Show()
     }
     if(chunkx <= 15 && chunky <= 15 && chunkx >= 0 && chunky >= 0)
     {
-        if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < 256 && camera.y > 0 && camera.y < 256 && cameraz > 0 && cameraz < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0)
+        if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < 256 && camera.y > 0 && camera.y < 256 && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0)
         {
             is_jumping = TRUE;
             camera_z_in_jump = camera.z;
@@ -256,27 +296,10 @@ void Game_Show()
                         {
                             int dcx = 16*chunkx;
                             int dcy = 16*chunky;
-                            if(camera.x + 9 < x + dcx || camera.x - 9 > x + dcx || camera.y + 9 < y + dcy || camera.y - 9 > y + dcy) continue;
-                            if(world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && x != 0 && y != 0 && x != 15 && y != 15 && z != 0 && z != 255) continue;
-                            if((x == 15 && chunkx != 15) && world[chunkx][chunky][x][y][z] != 0 && world[chunkx+1][chunky][0][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && z != 0 && z != 255)
-                            {
-                                if(chunky == 0 && y == 0 || chunky == 15 || chunkx == 15) {}
-                                else continue;
-                            }
-                            if((x == 0 && chunkx != 0) && world[chunkx][chunky][x][y][z] != 0 && world[chunkx-1][chunky][15][y][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && z != 0 && z != 255)
-                            {
-                                if(chunky == 0 && y == 0 || chunky == 15 || chunkx == 15) {}
-                                else continue;
-                            }
-                            if((y == 15 && chunky != 15) && world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky+1][x][0][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && z != 0 && z != 255)
-                            {
-                                if(chunkx == 0 && x == 0 || chunkx == 15 || chunky == 15) {}
-                                else continue;
-                            }
-                            if((y == 0 && chunky != 0) && world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky-1][x][15][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && z != 0 && z != 255){
-                                if(chunkx == 0 && x == 0 || chunkx == 15 || chunky == 15) {}
-                                else continue;
-                            }
+                            if(camera.x + 9 < x + dcx || camera.x - 9 > x + dcx || camera.y + 9 < y + dcy || camera.y - 9 > y + dcy || camera.z + 9 < z || camera.z - 9 > z) continue;
+                            if(world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && x != 0 && x != 15 &&  y != 0 && y != 15 && z != 0 && z != 255) continue;
+                            if(x == 15 && y == 15 && world[chunkx][chunky][x][y][z] != 0 && world[chunkx+1][chunky][0][y][z] != 0 && world[chunkx][chunky][14][y][z] != 0 && world[chunkx][chunky+1][x][0][z] != 0 && world[chunkx][chunky][x][14][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && z != 0 && z != 255) continue;
+                            else if(x == 0 && y == 0 && world[chunkx][chunky][x][y][z] != 0 && world[chunkx-1][chunky][15][y][z] != 0 && world[chunkx][chunky][1][y][z] != 0 && world[chunkx][chunky-1][x][15][z] != 0 && world[chunkx][chunky][x][1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && z != 0 && z != 255) continue;
                             if(world[chunkx][chunky][x][y][z] == 1)
                             {
                                 glVertexPointer(3, GL_FLOAT, 0, block);
@@ -342,6 +365,154 @@ void ShowDebugInfo()
     printf("FPS: %d\nBlocks rendered: %d\nis_jumping = %s\n", (int)fps, draw_cnt, is_jumping ? "TRUE" : "FALSE");
 }
 
+void ClientToOpenGL(int x, int y, double *ox, double *oy, double *oz)
+{
+    int vp[4];
+    double mMatrix[16], pMatrix[16];
+    float z;
+
+    glGetIntegerv(GL_VIEWPORT, vp);
+    y = vp[3] - y - 1;
+
+    glGetDoublev(GL_MODELVIEW_MATRIX, mMatrix);
+    glGetDoublev(GL_PROJECTION_MATRIX, pMatrix);
+    glReadPixels(x, y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &z);
+    gluUnProject(x, y, z, mMatrix, pMatrix, vp, ox, oy, oz);
+}
+
+int PlayerSetBlock(BOOL create)
+{
+    if(camera.x < 0 || camera.x >= 256 || camera.y < 0 || camera.y >= 256 || camera.z < 0 || camera.z >= 256) return FALSE;
+    double bx, by, bz;
+    int X, Y, Z;
+    glPushMatrix();
+        Camera_Apply();
+        ClientToOpenGL(400, 300, &bx, &by, &bz);
+        int chunkx = bx / 16;
+        int chunky = by / 16;
+        int dcx = 16 * chunkx;
+        int dcy = 16 * chunky;
+        X = bx - dcx;
+        Y = by - dcy;
+        Z = bz;
+
+        if(chunkx <= 15 && chunkx >= 0 && chunky <= 15 && chunky >= 0)
+        {
+            if(create == FALSE) world[chunkx][chunky][X][Y][Z] = 0;
+            else
+            {
+                bx += (camera.x - bx) / 10.0;
+                by += (camera.y - by) / 10.0;
+                bz += (camera.z - bz) / 10.0;
+                chunkx = bx / 16;
+                chunky = by / 16;
+                dcx = 16 * chunkx;
+                dcy = 16 * chunky;
+                X = bx - dcx;
+                Y = by - dcy;
+                Z = bz;
+                if(world[chunkx][chunky][X][Y][Z] == 0)
+                {
+                    if(Z == 44) world[chunkx][chunky][X][Y][Z] = 2;
+                    else world[chunkx][chunky][X][Y][Z] = 1;
+                }
+            }
+        }
+    glPopMatrix();
+}
+
+int GetBlockID(int x, int y, int z)
+{
+    int chunkx = x / 16;
+    int chunky = y / 16;
+    int dcx = 16*chunkx;
+    int dcy = 16*chunky;
+    int fx = x - dcx;
+    int fy = y - dcy;
+    return world[chunkx][chunky][fx][fy][z];
+}
+
+BOOL DirectoryExists(const char* absolutePath)
+{
+    if(_access(absolutePath, 0) == 0)
+    {
+        struct stat status;
+        stat(absolutePath, &status);
+        return(status.st_mode & S_IFDIR) != 0;
+    }
+    return FALSE;
+}
+
+void SaveWorld()
+{
+    TCHAR buffer[MAX_PATH];
+    GetCurrentDirectory(sizeof(buffer), buffer);
+    char path[MAX_PATH];
+    sprintf(path, "%s\\saves", buffer);
+    if(!DirectoryExists(path)) mkdir(path);
+    sprintf(path, "%s\\saves\\world", buffer);
+    if(!DirectoryExists(path)) mkdir(path);
+    FILE *level;
+    FILE *file_world;
+
+    sprintf(path, "%s\\saves\\world\\level.dat", buffer);
+
+    level = fopen(path, "w");
+
+    if(level == NULL) creat(path, S_IREAD|S_IWRITE);
+
+    level = fopen(path, "w");
+
+    fwrite(&camera, 1, sizeof(camera), level);
+    fclose(level);
+
+    sprintf(path, "%s\\saves\\world\\world.ocw", buffer);
+
+    file_world = fopen(path, "w");
+
+    if(file_world == NULL) creat(path, S_IREAD|S_IWRITE);
+
+    level = fopen(path, "w");
+
+    fwrite(world, 1, sizeof(world), file_world);
+    fclose(file_world);
+}
+
+void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
+{
+    PIXELFORMATDESCRIPTOR pfd;
+
+    int iFormat;
+
+    *hDC = GetDC(hwnd);
+
+    ZeroMemory(&pfd, sizeof(pfd));
+
+    pfd.nSize = sizeof(pfd);
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_DRAW_TO_WINDOW |
+                  PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 24;
+    pfd.cDepthBits = 16;
+    pfd.iLayerType = PFD_MAIN_PLANE;
+
+    iFormat = ChoosePixelFormat(*hDC, &pfd);
+
+    SetPixelFormat(*hDC, iFormat, &pfd);
+
+    *hRC = wglCreateContext(*hDC);
+
+    wglMakeCurrent(*hDC, *hRC);
+}
+
+void DisableOpenGL (HWND hwnd, HDC hDC, HGLRC hRC)
+{
+    wglMakeCurrent(NULL, NULL);
+    wglDeleteContext(hRC);
+    ReleaseDC(hwnd, hDC);
+}
+
 int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine,
@@ -374,7 +545,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
     hwnd = CreateWindowEx(0,
                           "Opencraft",
-                          "Opencraft rd-132211",
+                          "Opencraft rd-241456",
                           WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
@@ -428,8 +599,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
             //ShowDebugInfo();
 
-            printf("%f %f %f\n", camera.Xrot, camera.Yrot, camera.Zrot);
-
             theta += 0,1080000108;
 
             timer--;
@@ -450,6 +619,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
         case WM_CLOSE:
+            SaveWorld();
             PostQuitMessage(0);
         break;
 
@@ -462,36 +632,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
 
         case WM_RBUTTONDOWN:
-            if(camera.x < 0 || camera.x >= 256 || camera.y < 0 || camera.y >= 256 || camera.z < 0 || camera.z >= 256) break;
-            float x = camera.x;
-            float y = camera.y;
-            float z = camera.z + 1.7;
+            PlayerSetBlock(FALSE);
+        break;
 
-            int X, Y, Z, oldX, oldY, oldZ;
-            int dist = 0;
-            while(dist < 4)
-            {
-                dist++;
-
-                x += -sin(forblocksX/180*M_PI);
-                z += tan(forblocksX/180*M_PI);
-                y += -cos(forblocksY/180*M_PI);
-
-                int chunkx = x / 16;
-                int chunky = y / 16;
-                int dcx = 16*chunkx;
-                int dcy = 16*chunky;
-                X = x - dcx;
-                Y = y - dcy;
-                Z = z;
-
-                if(world[chunkx][chunky][X][Y][Z] != 0)
-                {
-                    world[chunkx][chunky][X][Y][Z] = 0;
-                    break;
-                }
-                oldX=X; oldY = Y; oldZ = Z;
-            }
+        case WM_LBUTTONDOWN:
+            PlayerSetBlock(TRUE);
         break;
 
         case WM_DESTROY:
@@ -502,6 +647,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             switch (wParam)
             {
                 case VK_ESCAPE:
+                    SaveWorld();
                     PostQuitMessage(0);
                 break;
             }
@@ -514,39 +660,3 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     return 0;
 }
-
-void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
-{
-    PIXELFORMATDESCRIPTOR pfd;
-
-    int iFormat;
-
-    *hDC = GetDC(hwnd);
-
-    ZeroMemory(&pfd, sizeof(pfd));
-
-    pfd.nSize = sizeof(pfd);
-    pfd.nVersion = 1;
-    pfd.dwFlags = PFD_DRAW_TO_WINDOW |
-                  PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    pfd.iPixelType = PFD_TYPE_RGBA;
-    pfd.cColorBits = 24;
-    pfd.cDepthBits = 16;
-    pfd.iLayerType = PFD_MAIN_PLANE;
-
-    iFormat = ChoosePixelFormat(*hDC, &pfd);
-
-    SetPixelFormat(*hDC, iFormat, &pfd);
-
-    *hRC = wglCreateContext(*hDC);
-
-    wglMakeCurrent(*hDC, *hRC);
-}
-
-void DisableOpenGL (HWND hwnd, HDC hDC, HGLRC hRC)
-{
-    wglMakeCurrent(NULL, NULL);
-    wglDeleteContext(hRC);
-    ReleaseDC(hwnd, hDC);
-}
-
