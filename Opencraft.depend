@@ -30,15 +30,15 @@
 	<intrin.h>
 	<arm_neon.h>
 
-1608804837 source:d:\Документы\Мои проекты\opencraft\camera.c
+1609327016 source:d:\Документы\Мои проекты\opencraft\camera.c
 	<GL/gl.h>
 	"camera.h"
 	<windows.h>
 	<math.h>
 
-1608803001 d:\Документы\Мои проекты\opencraft\camera.h
+1609320454 d:\Документы\Мои проекты\opencraft\camera.h
 
-1608807114 source:d:\Документы\Мои проекты\opencraft\main.c
+1609331755 source:d:\Документы\Мои проекты\opencraft\main.c
 	<windows.h>
 	<direct.h>
 	<gl/gl.h>
@@ -46,6 +46,7 @@
 	<io.h>
 	<sys/types.h>
 	<sys/stat.h>
+	<time.h>
 	"camera.h"
 	"stb_image.h"
 

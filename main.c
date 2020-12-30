@@ -5,6 +5,7 @@
 #include <io.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include "camera.h"
 
@@ -18,9 +19,14 @@ int grass_top_texture;
 int grass_side_texture;
 int dirt_texture;
 
+int man_texture;
+
+BOOL DirectoryExists(const char* absolutePath);
+
 float camera_z_in_jump;
 
 int timer = 0;
+int timer_r = 0;
 
 float size = 20.f;
 
@@ -66,7 +72,88 @@ GLuint block_Ind_up[] = {4,5,6, 6,7,4};
 int blockIncCnt_up = sizeof(block_Ind_up) / sizeof(GLuint);
 int blockIncCnt_down = sizeof(block_Ind_down) / sizeof(GLuint);
 
-void GenerateNewChunk(chunkx, chunky)
+
+// Entities
+
+// Man
+
+float entity_man_leg[] = {0,0,0, 0.25,0,0, 0.25,0.25,0, 0,0.25,0, 0,0,0.8, 0.25,0,0.8, 0.25,0.25,0.8, 0,0.25,0.8};
+GLuint entity_man_leg_ind[] = {0,1,5, 5,4,0, 1,2,6, 6,5,1, 2,3,7, 7,6,2, 3,0,4, 4,7,3};
+int entity_man_leg_ind_cnt = sizeof(entity_man_leg_ind) / sizeof(GLuint);
+
+float entity_man_leg_up[] = {0,0.25, 0.25,0.25, 0.25,0, 0,0, 0,0.25, 0.25,0.25, 0.25,0, 0,0};
+GLuint entity_man_leg_ind_up[] = {4,5,6, 6,7,4};
+int entity_man_leg_ind_up_cnt = sizeof(entity_man_leg_ind_up) / sizeof(GLuint);
+
+float man_right_leg_texture[] = {0.750,1, 0.8125,1, 0.750,1, 0.8125,1, 0.750,0.66, 0.8125,0.66, 0.750,0.66, 0.8125,0.66};
+float man_right_leg_texture_2[] = {0.8125,1, 0.8745,1, 0.8125,1, 0.8745,1, 0.8125,0.66, 0.8745,0.66, 0.8125,0.66, 0.8745,0.66};
+float man_right_leg_texture_3[] = {0.8745,1, 0.937,1, 0.8745,1, 0.937,1, 0.8745,0.66, 0.937,0.66, 0.8745,0.66, 0.937,0.66};
+float man_right_leg_texture_4[] = {0.937,1, 1,1, 0.937,1, 1,1, 0.937,0.66, 1,0.66, 0.937,0.66, 1,0.66};
+float man_right_leg_texture_up[] = {0.6875,0.78, 0.750,0.78, 0.6875,0.78, 0.750,0.78, 0.6875,0.66, 0.750,0.66, 0.6875,0.66, 0.750,0.66};
+float man_right_leg_texture_down[] = {0.750,0.905, 0.6875,0.905, 0.6875,0.785, 0.750,0.785, 0.750,0.905, 0.6875,0.905, 0.6875,0.785, 0.750,0.785};
+
+float man_left_leg_texture[] = {0.750,1, 0.8125,1, 0.750,1, 0.8125,1, 0.750,0.66, 0.8125,0.66, 0.750,0.66, 0.8125,0.66};
+float man_left_leg_texture_2[] = {0.8125,1, 0.8745,1, 0.8125,1, 0.8745,1, 0.8125,0.66, 0.8745,0.66, 0.8125,0.66, 0.8745,0.66};
+float man_left_leg_texture_3[] = {0.8745,1, 0.937,1, 0.8745,1, 0.937,1, 0.8745,0.66, 0.937,0.66, 0.8745,0.66, 0.937,0.66};
+float man_left_leg_texture_4[] = {0.937,1, 1,1, 0.937,1, 1,1, 0.937,0.66, 1,0.66, 0.937,0.66, 1,0.66};
+float man_left_leg_texture_up[] = {0.6875,0.78, 0.750,0.78, 0.6875,0.78, 0.750,0.78, 0.6875,0.66, 0.750,0.66, 0.6875,0.66, 0.750,0.66};
+float man_left_leg_texture_down[] = {0.750,0.905, 0.6875,0.905, 0.6875,0.785, 0.750,0.785, 0.750,0.905, 0.6875,0.905, 0.6875,0.785, 0.750,0.785};
+
+float entity_man_body[] = {0,0,0, 0.5,0,0, 0.5,0.25,0, 0,0.25,0, 0,0,0.7, 0.5,0,0.7, 0.5,0.25,0.7, 0,0.25,0.7};
+GLuint entity_man_body_ind[] = {0,1,5, 5,4,0, 1,2,6, 6,5,1, 2,3,7, 7,6,2, 3,0,4, 4,7,3};
+int entity_man_body_ind_cnt = sizeof(entity_man_body_ind) / sizeof(GLuint);
+
+float man_body_texture[] = {0,0.50, 0.125,0.50, 0,0.50, 0.125,0.50, 0,0.25, 0.125,0.25, 0,0.25, 0.125,0.25};
+float man_body_texture_2[] = {0.125,0.50, 0.1875,0.50, 0.125,0.50, 0.1875,0.50, 0.125,0.25, 0.1875,0.25, 0.125,0.25, 0.1875,0.25};
+float man_body_texture_3[] = {0.375,0.50, 0.5,0.50, 0.375,0.50, 0.5,0.50, 0.375,0.25, 0.5,0.25, 0.375,0.25, 0.5,0.25};
+float man_body_texture_4[] = {0.1875,0.50, 0.375,0.50, 0.1875,0.50, 0.375,0.50, 0.1875,0.25, 0.375,0.25, 0.1875,0.25, 0.375,0.25};
+
+float man_body_up_texture[] = {0.375,0.50, 0.500,0.50, 0.375,0.50, 0.500,0.50, 0.375,0.25, 0.500,0.25, 0.375,0.25, 0.500,0.25};
+
+float entity_man_body_up[] = {0,1, 1,1, 1,0, 0,0, 0,1, 1,1, 1,0, 0,0};
+GLuint entity_man_body_ind_up[] = {4,5,6, 6,7,4};
+int entity_man_body_ind_cnt_up = sizeof(entity_man_body_ind_up) / sizeof(GLuint);
+
+float entity_man_head[] = {0,0,0, 0.5,0,0, 0.5,0.5,0, 0,0.5,0, 0,0,0.5, 0.5,0,0.5, 0.5,0.5,0.5, 0,0.5,0.5};
+GLuint entity_man_head_ind_1[] = {2,3,7, 7,6,2};
+GLuint entity_man_head_ind_2[] = {1,2,6, 6,5,1};
+GLuint entity_man_head_ind_3[] = {0,1,5, 5, 4, 0};
+GLuint entity_man_head_ind_4[] = {3,0,4, 4,7,3};
+int entity_man_head_ind_cnt_1 = sizeof(entity_man_head_ind_1) / sizeof(GLuint);
+int entity_man_head_ind_cnt_2 = sizeof(entity_man_head_ind_2) / sizeof(GLuint);
+int entity_man_head_ind_cnt_3 = sizeof(entity_man_head_ind_3) / sizeof(GLuint);
+int entity_man_head_ind_cnt_4 = sizeof(entity_man_head_ind_4) / sizeof(GLuint);
+
+float man_head_texture[] = {0,0.0, 0.125,0.25, 0,0.25, 0.125,0.25, 0,0, 0.125,0, 0,0, 0.125,0};
+float man_head_texture_2[] = {0.125,0.0, 0.25,0.25, 0.125,0.25, 0.25,0.25, 0.125,0, 0.25,0, 0.125,0, 0.25,0};
+float man_head_texture_3[] = {0.375,0.25, 0.5,0.25, 0.375,0.25, 0.5,0.25, 0.375,0, 0.5,0, 0.375,0, 0.5,0};
+float man_head_texture_4[] = {0.250,0.25, 0.375,0.25, 0.250,0.25, 0.375,0.25, 0.250,0, 0.375,0, 0.250,0, 0.375,0};
+float man_head_up_texture[] = {0.5,0.25, 0.625,0.25, 0.625,0, 0.5,0, 0.5,0.25, 0.625,0.25, 0.625,0, 0.5,0};
+float man_head_down_texture[] = {0.625,0.25, 0.750,0.25, 0.750,0, 0.625,0, 0.625,0.25, 0.750,0.25, 0.750,0, 0.625,0};
+
+float entity_man_head_up[] = {0,0.5, 0.5,0.5, 0.5,0, 0,0, 0,0.5, 0.5,0.5, 1,0, 0,0};
+GLuint entity_man_head_ind_up[] = {4,5,6, 6,7,4};
+int entity_man_head_up_cnt = sizeof(entity_man_head_ind_up) / sizeof(GLuint);
+
+float entity_man_hand[] = {0,0,0, 0.25,0,0, 0.25,0.25,0, 0,0.25,0, 0,0,0.7, 0.25,0,0.7, 0.25,0.25,0.7, 0,0.25,0.7};
+GLuint entity_man_hand_ind[] = {0,1,5, 5,4,0, 1,2,6, 6,5,1, 2,3,7, 7,6,2, 3,0,4, 4,7,3};
+int entity_man_hand_ind_cnt = sizeof(entity_man_hand_ind) / sizeof(GLuint);
+
+float man_right_hand_texture[] = {0,1, 0.0625,1, 0,1, 0.0625,1, 0,0.66, 0.0625,0.66, 0,0.66, 0.0625,0.66};
+float man_right_hand_texture_2[] = {0.0625,1, 0.125,1, 0.0625,1, 0.125,1, 0.0625,0.66, 0.125,0.66, 0.0625,0.66, 0.125,0.66};
+float man_right_hand_texture_3[] = {0.125,1, 0.1875,1, 0.125,1, 0.1875,1, 0.125,0.66, 0.1875,0.66, 0.125,0.66, 0.1875,0.66};
+float man_right_hand_texture_4[] = {0.1875,1, 0.25,1, 0.1875,1, 0.25,1, 0.1875,0.66, 0.25,0.66, 0.1875,0.66, 0.25,0.66};
+float man_right_hand_up_texture[] = {0.25,0.78, 0.3125,0.78, 0.3125,0.66, 0.25,0.66, 0.25,0.78, 0.3125,0.78, 0.3125,0.66, 0.25,0.66};
+float man_right_hand_down_texture[] = {0.25,0.905, 0.3125,0.905, 0.3125,0.785, 0.25,0.785, 0.25,0.905, 0.3125,0.905, 0.3125,0.785, 0.25,0.785};
+
+float man_left_hand_texture[] = {0.3125,1, 0.375,1, 0.3125,1, 0.375,1, 0.3125,0.66, 0.375,0.66, 0.3125,0.66, 0.375,0.66};
+float man_left_hand_texture_2[] = {0.375,1, 0.4375,1, 0.375,1, 0.4375,1, 0.375,0.66, 0.4375,0.66, 0.375,0.66, 0.4375,0.66};
+float man_left_hand_texture_3[] = {0.4375,1, 0.5,1, 0.4375,1, 0.5,1, 0.4375,0.66, 0.5,0.66, 0.4375,0.66, 0.5,0.66};
+float man_left_hand_texture_4[] = {0.5,1, 0.5625,1, 0.5,1, 0.5625,1, 0.5,0.66, 0.5625,0.66, 0.5,0.66, 0.5625,0.66};
+float man_left_hand_up_texture[] = {0.5625,0.78, 0.625,0.78, 0.625,0.66, 0.5625,0.66, 0.5625,0.78, 0.625,0.78, 0.625,0.66, 0.5625,0.66};
+float man_left_hand_down_texture[] = {0.5625,0.905, 0.625,0.785, 0.625,0.66, 0.5625,0.66, 0.5625,0.905, 0.625,0.905, 0.625,0.785, 0.5625,0.785};
+
+void GenerateNewChunk(int chunkx, int chunky)
 {
     for(int z = 0; z <= 255; z++)
     {
@@ -113,15 +200,38 @@ void LoadTexture(char *filename, int *target)
 
 void Game_Init()
 {
-    LoadTexture("textures/cobblestone.png", &cobblestone_texture);
-    LoadTexture("textures/grass_top.png", &grass_top_texture);
-    LoadTexture("textures/grass_side.png", &grass_side_texture);
-    LoadTexture("textures/dirt.png", &dirt_texture);
+    LoadTexture("textures/blocks/cobblestone.png", &cobblestone_texture);
+    LoadTexture("textures/blocks/grass_top.png", &grass_top_texture);
+    LoadTexture("textures/blocks/grass_side.png", &grass_side_texture);
+    LoadTexture("textures/blocks/dirt.png", &dirt_texture);
+
+    LoadTexture("textures/entity/man.png", &man_texture);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
     glEnable(GL_COLOR_MATERIAL);
     glEnable(GL_NORMALIZE);
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_FOG);
+    glFogi(GL_FOG_MODE, fogMode[fogfilter]);
+    glFogfv(GL_FOG_COLOR, fogColor);
+    glFogf(GL_FOG_DENSITY, 0.35f);
+    glHint(GL_FOG_HINT, GL_DONT_CARE);
+    glFogf(GL_FOG_START, 7.0f);
+    glFogf(GL_FOG_END, 8.0f);
+
+    srand(time(NULL));
+
+    for(int i = 0; i < 100; i++)
+    {
+        int f = rand() % 255;
+        int s = rand() % 255;
+        Entities[i].x = (float)f;
+        Entities[i].y = (float)s;
+        Entities[i].z = 45;
+        Entities[i].entity_id = 1;
+    }
+
     TCHAR buffer[MAX_PATH];
     GetCurrentDirectory(sizeof(buffer), buffer);
     char path[MAX_PATH];
@@ -256,17 +366,32 @@ void Game_Show()
             camera.z = cameraz + 1;
         }
     }
-    glEnable(GL_FOG);
-    glFogi(GL_FOG_MODE, fogMode[fogfilter]);
-    glFogfv(GL_FOG_COLOR, fogColor);
-    glFogf(GL_FOG_DENSITY, 0.35f);
-    glHint(GL_FOG_HINT, GL_DONT_CARE);
-    glFogf(GL_FOG_START, 7.0f);
-    glFogf(GL_FOG_END, 8.0f);
+
+    if(GetKeyState('R') < 0 && timer_r <= 0)
+    {
+        BOOL success = FALSE;
+        while(success == FALSE)
+        {
+            int x = rand();
+            int y = rand();
+            x %= 255;
+            y %= 255;
+            for(int i = 0; i < 256; i++)
+            {
+                if(GetBlockID(x, y, i) == 0 && GetBlockID(x, y, i+1) == 0)
+                {
+                    camera.x = x;
+                    camera.y = y;
+                    camera.z = i;
+                    success = TRUE;
+                    timer_r = 10;
+                    break;
+                }
+            }
+        }
+    }
 
     int dcnt = 0;
-
-    glEnable(GL_TEXTURE_2D);
     glPushMatrix();
         Camera_Apply();
         glPushMatrix();
@@ -298,8 +423,6 @@ void Game_Show()
                             int dcy = 16*chunky;
                             if(camera.x + 9 < x + dcx || camera.x - 9 > x + dcx || camera.y + 9 < y + dcy || camera.y - 9 > y + dcy || camera.z + 9 < z || camera.z - 9 > z) continue;
                             if(world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && x != 0 && x != 15 &&  y != 0 && y != 15 && z != 0 && z != 255) continue;
-                            if(x == 15 && y == 15 && world[chunkx][chunky][x][y][z] != 0 && world[chunkx+1][chunky][0][y][z] != 0 && world[chunkx][chunky][14][y][z] != 0 && world[chunkx][chunky+1][x][0][z] != 0 && world[chunkx][chunky][x][14][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && z != 0 && z != 255) continue;
-                            else if(x == 0 && y == 0 && world[chunkx][chunky][x][y][z] != 0 && world[chunkx-1][chunky][15][y][z] != 0 && world[chunkx][chunky][1][y][z] != 0 && world[chunkx][chunky-1][x][15][z] != 0 && world[chunkx][chunky][x][1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && z != 0 && z != 255) continue;
                             if(world[chunkx][chunky][x][y][z] == 1)
                             {
                                 glVertexPointer(3, GL_FLOAT, 0, block);
@@ -339,6 +462,180 @@ void Game_Show()
                     }
                 }
             }
+        }
+        for(int j = 0; j < 100; j++)
+        {
+            if(camera.x + 9 < Entities[j].x || camera.x - 9 > Entities[j].x || camera.y + 9 < Entities[j].y || camera.y - 9 > Entities[j].y || camera.z + 9 < Entities[j].z || camera.z - 9 > Entities[j].z) continue;
+            if(Entities[j].entity_id == 1)
+            {
+                glVertexPointer(3, GL_FLOAT, 0, entity_man_leg);
+                glNormalPointer(GL_FLOAT, 0, normal);
+                glBindTexture(GL_TEXTURE_2D, man_texture);
+                glNormal3f(0,0,1);
+                glColor3f(0.7, 0.7, 0.7);
+                glPushMatrix();
+                    glTranslatef(Entities[j].x, Entities[j].y, Entities[j].z);
+                    glRotatef(Entities[j].Xrot, 1,0,0);
+                    glRotatef(Entities[j].Zrot, 0,0,1);
+                    glTranslatef(0, Entities[j].leg_left_c, Entities[j].leg_left_z);
+                    glRotatef(Entities[j].leg_left, 1,0,0);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_leg_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_leg_texture_2);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_leg_texture_3);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_leg_texture_4);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_leg_texture_up);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                    glTranslatef(0.0, 0.0, -0.8);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_leg_texture_down);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+
+                    glTranslatef(0.0, 0, 0.8);
+
+                    glRotatef(-Entities[j].leg_left, 1,0,0);
+                    glTranslatef(0, -Entities[j].leg_left_c, -Entities[j].leg_left_z);
+
+                    glTranslatef(0.25, 0, 0);
+
+                    glTranslatef(0, Entities[j].leg_right_c, Entities[j].leg_right_z);
+                    glRotatef(Entities[j].leg_right, 1,0,0);
+
+                    glVertexPointer(3, GL_FLOAT, 0, entity_man_leg);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_leg_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_leg_texture_2);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_leg_texture_3);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_leg_texture_4);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_leg_texture_up);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                    glTranslatef(0.0, 0.0, -0.8);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_leg_texture_down);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                    glTranslatef(0.0, 0.0, 0.8);
+
+                    glRotatef(-Entities[j].leg_right, 1,0,0);
+                    glTranslatef(0, -Entities[j].leg_right_c, -Entities[j].leg_right_z);
+
+                    glTranslatef(-0.25, 0, 0.8);
+                    glColor3f(0.8, 0.8, 0.8);
+                    glVertexPointer(3, GL_FLOAT, 0, entity_man_body);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_body_texture);
+
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_body_texture_2);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_body_texture_3);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_body_texture_4);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_body_up_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_body_ind_cnt_up, GL_UNSIGNED_INT, entity_man_body_ind_up);
+
+                    glTranslatef(0.0, 0.0, -0.7);
+                    glDrawElements(GL_TRIANGLES, entity_man_body_ind_cnt_up, GL_UNSIGNED_INT, entity_man_body_ind_up);
+
+                    glTranslatef(0.0, 0.0, 0.7);
+                    glTranslatef(0, -0.1, 0.7);
+                    glVertexPointer(3, GL_FLOAT, 0, entity_man_head);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_head_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_head_texture_2);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_head_texture_3);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_head_texture_4);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_head_up_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                    glTranslatef(0.0, 0.0, -0.5);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_head_down_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                    glTranslatef(0.0, 0.0, 0.5);
+
+                    glTranslatef(0.5, 0.1, -0.7);
+
+                    glTranslatef(0, Entities[j].hand_right_c, Entities[j].hand_right_z);
+                    glRotatef(Entities[j].hand_right, 1,0,0);
+
+                    glVertexPointer(3, GL_FLOAT, 0, entity_man_hand);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_texture_2);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_texture_3);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_texture_4);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_up_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                    glTranslatef(0.0, 0.0, -0.7);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_down_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                    glTranslatef(0.0, 0.0, 0.7);
+
+                    glRotatef(-Entities[j].hand_right, 1,0,0);
+                    glTranslatef(0, -Entities[j].hand_right_c, -Entities[j].hand_right_z);
+
+                    glTranslatef(-0.75, 0, 0);
+
+                    glTranslatef(0, Entities[j].hand_left_c, Entities[j].hand_left_z);
+                    glRotatef(Entities[j].hand_left, 1,0,0);
+
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_hand_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_hand_texture_2);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_hand_texture_3);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_hand_texture_4);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_hand_up_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                    glTranslatef(0.0, 0.0, -0.7);
+                    glTexCoordPointer(2, GL_FLOAT, 0, man_right_hand_down_texture);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+                glPopMatrix();
+            }
+            EntityAI(j);
         }
         glDisableClientState(GL_NORMAL_ARRAY);
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -423,6 +720,7 @@ int PlayerSetBlock(BOOL create)
 
 int GetBlockID(int x, int y, int z)
 {
+    if(x < 0 || x >= 256 || y < 0 || y >= 256 || z < 0 || z >= 256) return 0;
     int chunkx = x / 16;
     int chunky = y / 16;
     int dcx = 16*chunkx;
@@ -476,6 +774,217 @@ void SaveWorld()
 
     fwrite(world, 1, sizeof(world), file_world);
     fclose(file_world);
+}
+
+void EntityAI(int j)
+{
+    int random = rand();
+    random %= 200;
+    if(random == 1 && Entities[j].Zrotplus == 0)
+    {
+        int z = rand();
+        z %= 360;
+        float x = z;
+        Entities[j].Zrotplus = x;
+    }
+
+    int random2 = rand();
+    random2 %= 200;
+    if(random2 == 1 && Entities[j].is_jumping == 0)
+    {
+        Entities[j].is_jumping = 1;
+        Entities[j].z_in_jump = Entities[j].z;
+    }
+    if(Entities[j].Zrotplus != 0)
+    {
+        if(Entities[j].Zrotplus > Entities[j].Zrot) Entities[j].Zrot++;
+        if(Entities[j].Zrotplus < Entities[j].Zrot) Entities[j].Zrot--;
+        if(Entities[j].Zrotplus == Entities[j].Zrot) Entities[j].Zrotplus = 0;
+    }
+
+    if(Entities[j].anim_step == 0)
+    {
+        Entities[j].leg_left += 1.0;
+        Entities[j].leg_left_c += 0.016;
+        Entities[j].leg_left_z += 0.006;
+        Entities[j].leg_right -= 1.0;
+        Entities[j].leg_right_c -= 0.016;
+        Entities[j].leg_right_z += 0.006;
+
+        Entities[j].hand_right -= 1.0;
+        Entities[j].hand_right_c -= 0.0106;
+        Entities[j].hand_right_z += 0.003;
+
+        Entities[j].hand_left += 1.0;
+        Entities[j].hand_left_c += 0.0106;
+        Entities[j].hand_left_z -= 0.003;
+
+        if(Entities[j].leg_left == 30) Entities[j].anim_step = 1;
+    }
+    if(Entities[j].anim_step == 1)
+    {
+        Entities[j].leg_left -= 1.0;
+        Entities[j].leg_left_c -= 0.016;
+        Entities[j].leg_left_z -= 0.006;
+        Entities[j].leg_right += 1.0;
+        Entities[j].leg_right_c += 0.016;
+        Entities[j].leg_right_z -= 0.006;
+
+        Entities[j].hand_right += 1.0;
+        Entities[j].hand_right_c += 0.0106;
+        Entities[j].hand_right_z -= 0.003;
+
+        Entities[j].hand_left -= 1.0;
+        Entities[j].hand_left_c -= 0.0106;
+        Entities[j].hand_left_z += 0.003;
+        if(Entities[j].leg_left == 0) Entities[j].anim_step = 2;
+    }
+    if(Entities[j].anim_step == 2)
+    {
+        Entities[j].leg_left -= 1.0;
+        Entities[j].leg_left_c -= 0.016;
+        Entities[j].leg_left_z += 0.006;
+        Entities[j].leg_right += 1.0;
+        Entities[j].leg_right_c += 0.016;
+        Entities[j].leg_right_z += 0.006;
+
+        Entities[j].hand_right += 1.0;
+        Entities[j].hand_right_c += 0.0106;
+        Entities[j].hand_right_z -= 0.003;
+
+        Entities[j].hand_left -= 1.0;
+        Entities[j].hand_left_c -= 0.0106;
+        Entities[j].hand_left_z += 0.003;
+        if(Entities[j].leg_left == -30) Entities[j].anim_step = 3;
+    }
+    if(Entities[j].anim_step == 3)
+    {
+        Entities[j].leg_left += 1.0;
+        Entities[j].leg_left_c += 0.016;
+        Entities[j].leg_left_z -= 0.006;
+        Entities[j].leg_right -= 1.0;
+        Entities[j].leg_right_c -= 0.016;
+        Entities[j].leg_right_z -= 0.006;
+
+        Entities[j].hand_right -= 1.0;
+        Entities[j].hand_right_c -= 0.0106;
+        Entities[j].hand_right_z += 0.003;
+
+        Entities[j].hand_left += 1.0;
+        Entities[j].hand_left_c += 0.0106;
+        Entities[j].hand_left_z -= 0.003;
+        if(Entities[j].leg_left == 0) Entities[j].anim_step = 0;
+    }
+
+    float ugol = -Entities[j].Zrot / 180 * M_PI;
+
+    ugol += 0 > 0 ? M_PI_4 : (0 < 0 ? -M_PI_4 : 0);
+    float new_cx = Entities[j].x + (sin(ugol) * 0.05);
+    float new_cy = Entities[j].y + (cos(ugol) * 0.05);
+    int chunkx = new_cx / 16;
+    int chunky = new_cy / 16;
+    int dcx = 16*chunkx;
+    int dcy = 16*chunky;
+    float x = new_cx - dcx;
+    float y = new_cy - dcy;
+    if(new_cx < 0 || new_cy < 0 || new_cx >= 256 || new_cy >= 256 || Entities[j].z <= -1 || Entities[j].z >= 256)
+    {
+        Entities[j].x = new_cx;
+        Entities[j].y = new_cy;
+        if(new_cx <= 256.3 && new_cx >= 256 && Entities[j].z < 45) Entities[j].x = 256.3;
+        if(new_cy <= 256.3 && new_cy >= 256 && Entities[j].z < 45) Entities[j].y = 256.3;
+        if(new_cx >= -0.3 && new_cx < 0 && Entities[j].z < 45) Entities[j].x = -0.4;
+        if(new_cy >= -0.3 && new_cy < 0 && Entities[j].z < 45) Entities[j].y = -0.4;
+    }
+    else if(world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 0 && world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 0)
+    {
+        float ccx = (int)new_cx;
+        float ccy = (int)new_cy;
+        if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 0)
+        {
+            if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+        }
+        if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 0)
+        {
+            if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
+        }
+        if(new_cy < Entities[j].y && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z) != 0)
+        {
+            if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+        }
+        if(new_cy > Entities[j].y && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z) != 0)
+        {
+            if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
+        }
+
+        if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 0)
+        {
+            if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+        }
+        if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 0)
+        {
+            if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
+        }
+        if(new_cy < Entities[j].y && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 0)
+        {
+            if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+        }
+        if(new_cy > Entities[j].y && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 0)
+        {
+            if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
+        }
+        Entities[j].x = new_cx;
+        Entities[j].y = new_cy;
+    }
+    if(Entities[j].x <= -0.3 || Entities[j].y <= -0.3 || Entities[j].x >= 256 || Entities[j].y >= 256 || Entities[j].z <= -0.01 || Entities[j].z >= 256)
+    {
+        Entities[j].z -= 0.3;
+    }
+    else if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 0 && Entities[j].is_jumping == 0)
+    {
+        Entities[j].z -= 0.3;
+    }
+    float old_z = Entities[j].z;
+    if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 0 && (int)Entities[j].z < Entities[j].z && Entities[j].is_jumping == 0)
+    {
+        Entities[j].z -= 0.3;
+        if(Entities[j].z < (int)old_z) Entities[j].z = (int)old_z;
+    }
+    if(Entities[j].is_jumping)
+    {
+        float ste = 2 * jump_go[Entities[j].jump_tmp];
+        Entities[j].z = (Entities[j].z_in_jump - 2)+(ste);
+        if(Entities[j].x >= 0 && Entities[j].x < 256 && Entities[j].y >= 0 && Entities[j].y < 256 && Entities[j].z >= 0 && Entities[j].z < 256)
+        {
+            if(Entities[j].jump_down == 0) Entities[j].jump_tmp++;
+            else Entities[j].jump_tmp--;
+            if(Entities[j].jump_tmp == 9) Entities[j].jump_down = 1;
+            if(Entities[j].jump_tmp == 0 && Entities[j].jump_down == 1)
+            {
+                Entities[j].is_jumping = 0;
+                Entities[j].jump_down = 0;
+                Entities[j].jump_tmp = 0;
+            }
+            if(Entities[j].jump_down == 1 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z != 0))
+            {
+                Entities[j].is_jumping = 0;
+                Entities[j].jump_down = 0;
+                Entities[j].jump_tmp = 0;
+            }
+            if(Entities[j].jump_down == 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z+2) != 0)
+            {
+                Entities[j].is_jumping = 0;
+                Entities[j].jump_down = 0;
+                Entities[j].jump_tmp = 0;
+            }
+        }
+        else
+        {
+            Entities[j].is_jumping = 0;
+            Entities[j].jump_down = 0;
+            Entities[j].jump_tmp = 0;
+        }
+    }
 }
 
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
@@ -545,7 +1054,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
     hwnd = CreateWindowEx(0,
                           "Opencraft",
-                          "Opencraft rd-241456",
+                          "Opencraft rd-301639",
                           WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
@@ -602,6 +1111,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
             theta += 0,1080000108;
 
             timer--;
+            timer_r--;
         }
     }
 
