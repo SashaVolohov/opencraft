@@ -1,7 +1,11 @@
 #ifndef CAMERA_H_INCLUDED
 #define CAMERA_H_INCLUDED
 
+#include <windows.h>
+
 int world[16][16][16][16][256];
+POINT scrSize;
+float scrKoef;
 
 struct SCamera{
     float x,y,z;
@@ -23,7 +27,14 @@ typedef struct {
     int jump_down;
 } entity;
 
-entity Entities[100];
+typedef struct {
+    float x[10], y[10], z[10];
+    float block_id;
+    int step;
+} sprite;
+
+entity Entities[500];
+sprite Sprites[100];
 
 void Camera_Apply();
 void Camera_Rotation(float xAngle, float zAngle);

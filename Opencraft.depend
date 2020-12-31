@@ -36,12 +36,12 @@
 	<windows.h>
 	<math.h>
 
-1609320454 d:\Документы\Мои проекты\opencraft\camera.h
+1609351717 d:\Документы\Мои проекты\opencraft\camera.h
+	<windows.h>
 
-1609331755 source:d:\Документы\Мои проекты\opencraft\main.c
+1609397866 source:d:\Документы\Мои проекты\opencraft\main.c
 	<windows.h>
 	<direct.h>
-	<gl/gl.h>
 	<gl/glu.h>
 	<io.h>
 	<sys/types.h>

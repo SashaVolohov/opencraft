@@ -1,6 +1,5 @@
 #include <windows.h>
 #include <direct.h>
-#include <gl/gl.h>
 #include <gl/glu.h>
 #include <io.h>
 #include <sys/types.h>
@@ -18,8 +17,12 @@ int cobblestone_texture;
 int grass_top_texture;
 int grass_side_texture;
 int dirt_texture;
+int planks_texture;
+int stone_texture;
 
 int man_texture;
+
+int icons_texture;
 
 BOOL DirectoryExists(const char* absolutePath);
 
@@ -27,6 +30,9 @@ float camera_z_in_jump;
 
 int timer = 0;
 int timer_r = 0;
+int timer_g = 0;
+
+int select_inv = 1;
 
 float size = 20.f;
 
@@ -55,8 +61,17 @@ void DisableOpenGL(HWND, HDC, HGLRC);
 float theta = 0.0f;
 
 float block[] = {0,0,0, 1,0,0, 1,1,0, 0,1,0, 0,0,1, 1,0,1, 1,1,1, 0,1,1};
+float sprite_vertex[] = {0,0,0, 0.1,0,0, 0.1,0.1,0, 0,0.1,0, 0,0,0.1, 0.1,0,0.1, 0.1,0.1,0.1, 0,0.1,0.1};
 GLuint blockInd[] = {0,1,5, 5,4,0, 1,2,6, 6,5,1, 2,3,7, 7,6,2, 3,0,4, 4,7,3};
 float block_texture[] = {0,1, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
+
+float sprite_texture[] = {0,0.1, 0.1,0.1, 0,0.1, 0.1,0.1, 0,0, 0.1,0, 0,0, 0.1,0};
+
+float sprite_2_texture[] = {0.5,0.6, 0.6,0.6, 0.5,0.6, 0.6,0.6, 0.5,0.5, 0.6,0.5, 0.5,0.5, 0.6,0.5};
+
+float sprite_3_texture[] = {0.9,1, 1,1, 0.9,1, 1,1, 0.9,0.9, 1,0.9, 0.9,0.9, 1,0.9};
+
+
 int blockIncCnt = sizeof(blockInd) / sizeof(GLuint);
 float normal[] = {-1,-1,3, 1, -1, 3, 1,1,3, -1, 1, 3, -1,-1,3, 1, -1, 3, 1,1,3, -1, 1, 3};
 
@@ -153,6 +168,15 @@ float man_left_hand_texture_4[] = {0.5,1, 0.5625,1, 0.5,1, 0.5625,1, 0.5,0.66, 0
 float man_left_hand_up_texture[] = {0.5625,0.78, 0.625,0.78, 0.625,0.66, 0.5625,0.66, 0.5625,0.78, 0.625,0.78, 0.625,0.66, 0.5625,0.66};
 float man_left_hand_down_texture[] = {0.5625,0.905, 0.625,0.785, 0.625,0.66, 0.5625,0.66, 0.5625,0.905, 0.625,0.905, 0.625,0.785, 0.5625,0.785};
 
+float cursor[] = {0,0, 32,0, 32,32, 0,32};
+float cursor_texture[] = {0,0, 0.06455,0, 0.06455,0.06455, 0,0.06455};
+
+float block_inventory[] = {0,0, 32, 16, 32, 50, 0, 37};
+float block_inventory_2[] = {32, 16, 64, 0, 64, 37, 32, 50};
+float block_inventory_3[] = {0,0, 32, -16, 64, 0, 32, 16};
+
+float block_inventory_texture[] = {0,0, 1,0, 1,1, 0,1};
+
 void GenerateNewChunk(int chunkx, int chunky)
 {
     for(int z = 0; z <= 255; z++)
@@ -161,7 +185,7 @@ void GenerateNewChunk(int chunkx, int chunky)
         {
             for(int x = 0; x <= 15; x++)
             {
-                if(z <= 43) world[chunkx][chunky][x][y][z] = 1;
+                if(z <= 43) world[chunkx][chunky][x][y][z] = 5;
                 else if(z == 44) world[chunkx][chunky][x][y][z] = 2;
                 else world[chunkx][chunky][x][y][z] = 0;
             }
@@ -204,8 +228,12 @@ void Game_Init()
     LoadTexture("textures/blocks/grass_top.png", &grass_top_texture);
     LoadTexture("textures/blocks/grass_side.png", &grass_side_texture);
     LoadTexture("textures/blocks/dirt.png", &dirt_texture);
+    LoadTexture("textures/blocks/planks.png", &planks_texture);
+    LoadTexture("textures/blocks/stone.png", &stone_texture);
 
     LoadTexture("textures/entity/man.png", &man_texture);
+
+    LoadTexture("textures/gui/icons.png", &icons_texture);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
@@ -219,6 +247,8 @@ void Game_Init()
     glHint(GL_FOG_HINT, GL_DONT_CARE);
     glFogf(GL_FOG_START, 7.0f);
     glFogf(GL_FOG_END, 8.0f);
+    glEnable(GL_ALPHA_TEST);
+    glAlphaFunc(GL_GREATER, 0.99);
 
     srand(time(NULL));
 
@@ -266,14 +296,10 @@ void Game_Init()
 }
 void WndResize(int x, int y)
 {
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
     glViewport(0,0,x,y);
-    float k = x / (float)y;
-    float sz = 0.1;
-    glFrustum(-k*sz,k*sz, -sz, sz, sz*2, 100);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    scrKoef = x / (float)y;
+    scrSize.x = x;
+    scrSize.y = y;
 }
 
 void Player_Move()
@@ -281,11 +307,21 @@ void Player_Move()
     Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
                          ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
                          ,0.2);
-    Camera_AutoMoveByMouse(400, 300, 0.2);
+    Camera_AutoMoveByMouse(scrSize.x/2, scrSize.y/2, 0.2);
 }
 
 void Game_Show()
 {
+    float sz = 0.1;
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-scrKoef*sz,scrKoef*sz, -sz, sz, sz*2, 100);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+
     glClearColor(0.6, 0.8, 1, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     int chunkx = camera.x / 16;
@@ -390,6 +426,25 @@ void Game_Show()
             }
         }
     }
+    if(GetKeyState('G') < 0 && timer_g <= 0)
+    {
+        for(int y = 0; y < 500; y++)
+        {
+            if(Entities[y].entity_id == 0)
+            {
+                Entities[y].entity_id = 1;
+                Entities[y].x = camera.x;
+                Entities[y].y = camera.y;
+                Entities[y].z = camera.z;
+                timer_g = 10;
+                break;
+            }
+        }
+    }
+    if(GetKeyState('1') < 0) select_inv = 1;
+    if(GetKeyState('2') < 0) select_inv = 2;
+    if(GetKeyState('3') < 0) select_inv = 3;
+    if(GetKeyState('4') < 0) select_inv = 4;
 
     int dcnt = 0;
     glPushMatrix();
@@ -457,13 +512,58 @@ void Game_Show()
                                     glDrawElements(GL_TRIANGLES, blockIncCnt_down, GL_UNSIGNED_INT, block_Ind_down);
                                 glPopMatrix();
                             }
+                            else if(world[chunkx][chunky][x][y][z] == 3)
+                            {
+                                glVertexPointer(3, GL_FLOAT, 0, block);
+                                glNormalPointer(GL_FLOAT, 0, normal);
+                                glNormal3f(0,0,1);
+                                glColor3f(0.7, 0.7, 0.7);
+                                glBindTexture(GL_TEXTURE_2D, dirt_texture);
+                                glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
+                                glPushMatrix();
+                                    glTranslatef(x+dcx, y+dcy, z);
+                                    glDrawElements(GL_TRIANGLES, blockIncCnt, GL_UNSIGNED_INT, blockInd);
+                                    glTexCoordPointer(2, GL_FLOAT, 0, block_texture_uad);
+                                    glDrawElements(GL_TRIANGLES, blockIncCnt_uad, GL_UNSIGNED_INT, block_Ind_uad);
+                                glPopMatrix();
+                            }
+                            else if(world[chunkx][chunky][x][y][z] == 4)
+                            {
+                                glVertexPointer(3, GL_FLOAT, 0, block);
+                                glNormalPointer(GL_FLOAT, 0, normal);
+                                glNormal3f(0,0,1);
+                                glColor3f(0.7, 0.7, 0.7);
+                                glBindTexture(GL_TEXTURE_2D, planks_texture);
+                                glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
+                                glPushMatrix();
+                                    glTranslatef(x+dcx, y+dcy, z);
+                                    glDrawElements(GL_TRIANGLES, blockIncCnt, GL_UNSIGNED_INT, blockInd);
+                                    glTexCoordPointer(2, GL_FLOAT, 0, block_texture_uad);
+                                    glDrawElements(GL_TRIANGLES, blockIncCnt_uad, GL_UNSIGNED_INT, block_Ind_uad);
+                                glPopMatrix();
+                            }
+                            else if(world[chunkx][chunky][x][y][z] == 5)
+                            {
+                                glVertexPointer(3, GL_FLOAT, 0, block);
+                                glNormalPointer(GL_FLOAT, 0, normal);
+                                glNormal3f(0,0,1);
+                                glColor3f(0.7, 0.7, 0.7);
+                                glBindTexture(GL_TEXTURE_2D, stone_texture);
+                                glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
+                                glPushMatrix();
+                                    glTranslatef(x+dcx, y+dcy, z);
+                                    glDrawElements(GL_TRIANGLES, blockIncCnt, GL_UNSIGNED_INT, blockInd);
+                                    glTexCoordPointer(2, GL_FLOAT, 0, block_texture_uad);
+                                    glDrawElements(GL_TRIANGLES, blockIncCnt_uad, GL_UNSIGNED_INT, block_Ind_uad);
+                                glPopMatrix();
+                            }
                             if(world[chunkx][chunky][x][y][z] != 0) dcnt++;
                         }
                     }
                 }
             }
         }
-        for(int j = 0; j < 100; j++)
+        for(int j = 0; j < 500; j++)
         {
             if(camera.x + 9 < Entities[j].x || camera.x - 9 > Entities[j].x || camera.y + 9 < Entities[j].y || camera.y - 9 > Entities[j].y || camera.z + 9 < Entities[j].z || camera.z - 9 > Entities[j].z) continue;
             if(Entities[j].entity_id == 1)
@@ -637,6 +737,33 @@ void Game_Show()
             }
             EntityAI(j);
         }
+        for(int q = 0; q < 100; q++)
+        {
+            if(Sprites[q].block_id != 0)
+            {
+                for(int e = 0; e < 10; e++)
+                {
+                    glVertexPointer(3, GL_FLOAT, 0, sprite_vertex);
+                    glNormalPointer(GL_FLOAT, 0, normal);
+                    glNormal3f(0,0,1);
+                    glColor3f(0.7, 0.7, 0.7);
+                    if(Sprites[q].block_id == 1) glBindTexture(GL_TEXTURE_2D, cobblestone_texture);
+                    if(Sprites[q].block_id == 2) glBindTexture(GL_TEXTURE_2D, grass_top_texture);
+                    if(Sprites[q].block_id == 3) glBindTexture(GL_TEXTURE_2D, dirt_texture);
+                    if(Sprites[q].block_id == 4) glBindTexture(GL_TEXTURE_2D, planks_texture);
+                    if(Sprites[q].block_id == 5) glBindTexture(GL_TEXTURE_2D, stone_texture);
+                    if(e == 0 || e == 3 || e == 9) glTexCoordPointer(2, GL_FLOAT, 0, sprite_texture);
+                    else if(e == 1 || e == 4 || e == 8) glTexCoordPointer(2, GL_FLOAT, 0, sprite_2_texture);
+                    else glTexCoordPointer(2, GL_FLOAT, 0, sprite_3_texture);
+                    glPushMatrix();
+                        glTranslatef(Sprites[q].x[e], Sprites[q].y[e], Sprites[q].z[e]);
+                        glDrawElements(GL_TRIANGLES, blockIncCnt, GL_UNSIGNED_INT, blockInd);
+                        glTexCoordPointer(2, GL_FLOAT, 0, block_texture_uad);
+                        glDrawElements(GL_TRIANGLES, blockIncCnt_uad, GL_UNSIGNED_INT, block_Ind_uad);
+                    glPopMatrix();
+                }
+            }
+        }
         glDisableClientState(GL_NORMAL_ARRAY);
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         glDisableClientState(GL_VERTEX_ARRAY);
@@ -679,12 +806,21 @@ void ClientToOpenGL(int x, int y, double *ox, double *oy, double *oz)
 
 int PlayerSetBlock(BOOL create)
 {
+    float sz = 0.1;
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glFrustum(-scrKoef*sz,scrKoef*sz, -sz, sz, sz*2, 100);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
     if(camera.x < 0 || camera.x >= 256 || camera.y < 0 || camera.y >= 256 || camera.z < 0 || camera.z >= 256) return FALSE;
     double bx, by, bz;
     int X, Y, Z;
     glPushMatrix();
         Camera_Apply();
-        ClientToOpenGL(400, 300, &bx, &by, &bz);
+        ClientToOpenGL(scrSize.x/2, scrSize.y/2, &bx, &by, &bz);
         int chunkx = bx / 16;
         int chunky = by / 16;
         int dcx = 16 * chunkx;
@@ -695,7 +831,32 @@ int PlayerSetBlock(BOOL create)
 
         if(chunkx <= 15 && chunkx >= 0 && chunky <= 15 && chunky >= 0)
         {
-            if(create == FALSE) world[chunkx][chunky][X][Y][Z] = 0;
+            if(create == FALSE)
+            {
+                for(int i = 0; i < 100; i++)
+                {
+                    if(Sprites[i].block_id == 0)
+                    {
+                        int a = 0;
+                        for(int zf = 0; zf < 3; zf++)
+                        {
+                            for(int xf = 0; xf < 3; xf++)
+                            {
+                                Sprites[i].x[a] = (int)X + (0.3 * xf) + dcx;
+                                Sprites[i].y[a] = (int)Y + dcy;
+                                Sprites[i].z[a] = (int)Z + (0.3 * zf);
+                                a++;
+                            }
+                        }
+
+                        Sprites[i].block_id = world[chunkx][chunky][X][Y][Z];
+                        Sprites[i].step = 0;
+
+                        break;
+                    }
+                }
+                world[chunkx][chunky][X][Y][Z] = 0;
+            }
             else
             {
                 bx += (camera.x - bx) / 10.0;
@@ -710,8 +871,10 @@ int PlayerSetBlock(BOOL create)
                 Z = bz;
                 if(world[chunkx][chunky][X][Y][Z] == 0)
                 {
-                    if(Z == 44) world[chunkx][chunky][X][Y][Z] = 2;
-                    else world[chunkx][chunky][X][Y][Z] = 1;
+                    if(select_inv == 1) world[chunkx][chunky][X][Y][Z] = 5;
+                    if(select_inv == 2) world[chunkx][chunky][X][Y][Z] = 3;
+                    if(select_inv == 3) world[chunkx][chunky][X][Y][Z] = 1;
+                    if(select_inv == 4) world[chunkx][chunky][X][Y][Z] = 4;
                 }
             }
         }
@@ -987,6 +1150,96 @@ void EntityAI(int j)
     }
 }
 
+void SpritesManage()
+{
+    for(int i = 0; i < 100; i++)
+    {
+        if(Sprites[i].block_id != 0)
+        {
+            Sprites[i].x[0] -= 0.05;
+            Sprites[i].z[0] += 0.05;
+            Sprites[i].z[1] += 0.05;
+            Sprites[i].x[2] += 0.05;
+            Sprites[i].z[2] += 0.05;
+            Sprites[i].x[3] -= 0.05;
+            Sprites[i].y[4] -= 0.05;
+            Sprites[i].x[5] += 0.05;
+
+            Sprites[i].x[6] -= 0.05;
+            Sprites[i].z[6] -= 0.05;
+            Sprites[i].z[7] -= 0.05;
+            Sprites[i].x[8] += 0.05;
+            Sprites[i].z[8] -= 0.05;
+
+            Sprites[i].step++;
+            if(Sprites[i].step >= 30) Sprites[i].block_id = 0;
+        }
+    }
+}
+
+void Menu_Show()
+{
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, scrSize.x, scrSize.y, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
+
+    int curx = scrSize.x / 2 - 16;
+    int cury = scrSize.y / 2 - 16;
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+        glVertexPointer(2, GL_FLOAT, 0, cursor);
+        glTexCoordPointer(2, GL_FLOAT, 0, cursor_texture);
+        glBindTexture(GL_TEXTURE_2D, icons_texture);
+        glPushMatrix();
+            glTranslatef(curx, cury, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+
+        curx = scrSize.x - 64 - 5;
+        cury = 20;
+
+        if(select_inv == 1) glBindTexture(GL_TEXTURE_2D, stone_texture);
+        if(select_inv == 2) glBindTexture(GL_TEXTURE_2D, dirt_texture);
+        if(select_inv == 3) glBindTexture(GL_TEXTURE_2D, cobblestone_texture);
+        if(select_inv == 4) glBindTexture(GL_TEXTURE_2D, planks_texture);
+
+        glVertexPointer(2, GL_FLOAT, 0, block_inventory);
+        glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+        glPushMatrix();
+            glTranslatef(curx, cury, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+
+        glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
+        glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+        glPushMatrix();
+            glTranslatef(curx, cury, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+
+        glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
+        glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+        glPushMatrix();
+            glTranslatef(curx, cury, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    glEnable(GL_TEXTURE_2D);
+
+    glEnable(GL_LIGHTING);
+    glEnable(GL_DEPTH_TEST);
+}
+
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
 {
     PIXELFORMATDESCRIPTOR pfd;
@@ -1054,7 +1307,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
     hwnd = CreateWindowEx(0,
                           "Opencraft",
-                          "Opencraft rd-301639",
+                          "Opencraft rd-20201231",
                           WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
@@ -1101,6 +1354,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
             glPushMatrix();
                 if (GetForegroundWindow() == hwnd) Player_Move();
                 Game_Show();
+                Menu_Show();
 
             glPopMatrix();
 
@@ -1108,10 +1362,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
             //ShowDebugInfo();
 
+            SpritesManage();
+
             theta += 0,1080000108;
 
             timer--;
             timer_r--;
+            timer_g--;
         }
     }
 
