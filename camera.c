@@ -4,7 +4,7 @@
 #include <windows.h>
 #include <math.h>
 
-struct SCamera camera = {128,128,45,0,0};
+struct SCamera camera = {128,128,65,0,0};
 
 void Camera_Apply()
 {

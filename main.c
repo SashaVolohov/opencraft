@@ -11,6 +11,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define OPENCRAFT_VERSION "rd-021647"
+
 // Текстуры
 
 int cobblestone_texture;
@@ -179,19 +181,145 @@ float block_inventory_texture[] = {0,0, 1,0, 1,1, 0,1};
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
-    for(int z = 0; z <= 255; z++)
+    int coolz = 0;
+    for(int y = 0; y <= 15; y++)
     {
-        for(int y = 0; y <= 15; y++)
+        for(int x = 0; x <= 15; x++)
         {
-            for(int x = 0; x <= 15; x++)
+            coolz = 0;
+            if(x == 0 && y == 0 && chunkx == 0 && chunky == 0) coolz = 45 + rand() % 5;
+            else if(x == 0 && chunkx != 0)
             {
-                if(z <= 43) world[chunkx][chunky][x][y][z] = 5;
-                else if(z == 44) world[chunkx][chunky][x][y][z] = 2;
-                else world[chunkx][chunky][x][y][z] = 0;
+                int zr = 0;
+                int zxx = 0;
+                for(int zq = 255; zq >= 0; zq--)
+                {
+                    if(y != 0)
+                    {
+                        if(world[chunkx][chunky][x][y-1][zq] != 0)
+                        {
+                            zr = zq;
+                            break;
+                        }
+                    }
+                    else if(chunky != 0 && y == 0)
+                    {
+                        if(world[chunkx][chunky-1][x][15][zq] != 0)
+                        {
+                            zr = zq;
+                            break;
+                        }
+                    }
+                }
+                for(int zx = 255; zx >= 0; zx--)
+                {
+                    if(world[chunkx-1][chunky][15][y][zx] != 0)
+                    {
+                        zxx = zx;
+                        break;
+                    }
+                }
+                int oror = rand() % 500;
+                int we = 0;
+                we = zxx;
+                printf("%d, %d -- %d, %d\n", zr, zxx, x, y);
+                if(oror <= 30) coolz = we + 1;
+                else if(oror >= 30 && oror <= 60) coolz = we - 1;
+                else coolz = we;
+            }
+            else if((y != 0 && chunky == 0) || chunky != 0)
+            {
+                int zr = 0;
+                int zxx = 0;
+                for(int zq = 255; zq >= 0; zq--)
+                {
+                    if(chunky == 0 || chunky != 0 && y != 0)
+                    {
+                        if(world[chunkx][chunky][x][y-1][zq] != 0)
+                        {
+                            zr = zq;
+                            break;
+                        }
+                    }
+                    else if(chunky != 0 && y == 0)
+                    {
+                        if(world[chunkx][chunky-1][x][15][zq] != 0)
+                        {
+                            zr = zq;
+                            break;
+                        }
+                    }
+                }
+                for(int zx = 255; zx >= 0; zx--)
+                {
+                    if(chunkx == 0)
+                    {
+                        if(world[chunkx][chunky][x-1][y][zx] != 0)
+                        {
+                            zxx = zx;
+                            break;
+                        }
+                    }
+                    else if(chunkx != 0 && x == 0 || chunkx != 0 && x != 0)
+                    {
+                        if(world[chunkx-1][chunky][15][y][zx] != 0)
+                        {
+                            zxx = zx;
+                            break;
+                        }
+                    }
+                }
+                int oror = rand() % 500;
+                int we = 0;
+                if(x != 0) we = avgnoov(zr, zxx);
+                else we = zr;
+                if(oror <= 30) coolz = we + 1;
+                else if(oror >= 30 && oror <= 60) coolz = we - 1;
+                else coolz = we;
+            }
+            else
+            {
+                int oror = rand() % 500;
+                int ze = 0;
+                if(x != 0)
+                {
+                    for(int zq = 255; zq >= 0; zq--)
+                    {
+                        if(world[chunkx][chunky][x-1][y][zq] != 0)
+                        {
+                            ze = zq;
+                            break;
+                        }
+                    }
+                    if(oror <= 30) coolz = ze + 1;
+                    else if(oror >= 30 && oror <= 60) coolz = ze - 1;
+                    else coolz = ze;
+                }
+                else
+                {
+                    for(int zq = 255; zq >= 0; zq--)
+                    {
+                        if(world[chunkx-1][chunky][x][y][zq] != 0)
+                        {
+                            ze = zq;
+                            break;
+                        }
+                    }
+                    if(oror <= 30) coolz = ze + 1;
+                    else if(oror >= 30 && oror <= 60) coolz = ze - 1;
+                    else coolz = ze;
+                }
+            }
+            for(int z = 0; z <= 255; z++)
+            {
+                if(z < coolz) world[chunkx][chunky][x][y][z] = 5;
+                if(z == coolz) world[chunkx][chunky][x][y][z] = 2;
+                if(z > coolz) world[chunkx][chunky][x][y][z] = 0;
             }
         }
     }
 }
+
 void GenerateNewWorld()
 {
     for(int y = 0; y <= 15; y++)
@@ -199,6 +327,14 @@ void GenerateNewWorld()
         for(int x = 0; x <= 15; x++)
         {
             GenerateNewChunk(x, y);
+        }
+    }
+    for(int zx = 255; zx >= 0; zx--)
+    {
+        if(GetBlockID((int)camera.x, (int)camera.y, zx) != 0)
+        {
+            camera.z = zx+1;
+            break;
         }
     }
     SaveWorld();
@@ -252,16 +388,6 @@ void Game_Init()
 
     srand(time(NULL));
 
-    for(int i = 0; i < 100; i++)
-    {
-        int f = rand() % 255;
-        int s = rand() % 255;
-        Entities[i].x = (float)f;
-        Entities[i].y = (float)s;
-        Entities[i].z = 45;
-        Entities[i].entity_id = 1;
-    }
-
     TCHAR buffer[MAX_PATH];
     GetCurrentDirectory(sizeof(buffer), buffer);
     char path[MAX_PATH];
@@ -270,6 +396,7 @@ void Game_Init()
     {
         FILE *level;
         FILE *file_world;
+        FILE *file_version;
 
         sprintf(path, "%s\\saves\\world\\level.dat", buffer);
 
@@ -291,8 +418,56 @@ void Game_Init()
             fclose(file_world);
         }
 
+        char version[50];
+
+        sprintf(path, "%s\\saves\\world\\version.dat", buffer);
+
+        file_version = fopen(path, "r");
+
+        if(file_version != NULL)
+        {
+            fread(version, 1, sizeof(version), file_version);
+            fclose(file_version);
+        }
+        else
+        {
+            for(int chunkx = 0; chunkx < 16; chunkx++)
+            {
+                for(int chunky = 0; chunky < 16; chunky++)
+                {
+                    for(int z = 0; z < 256; z++)
+                    {
+                        for(int y = 0; y < 16; y++)
+                        {
+                            for(int x = 0; x < 16; x++)
+                            {
+                                if(world[chunkx][chunky][x][y][z] != 0) world[chunkx][chunky][x][y][z] = 5;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
     }
     else GenerateNewWorld();
+
+    for(int i = 0; i < 100; i++)
+    {
+        int f = rand() % 255;
+        int s = rand() % 255;
+        Entities[i].x = (float)f;
+        Entities[i].y = (float)s;
+        for(int zx = 255; zx >= 0; zx--)
+        {
+            if(GetBlockID((int)Entities[i].x, (int)Entities[i].y, zx) != 0)
+            {
+                Entities[i].z = zx+1;
+                break;
+            }
+        }
+        Entities[i].entity_id = 1;
+    }
 }
 void WndResize(int x, int y)
 {
@@ -556,6 +731,26 @@ void Game_Show()
                                     glTexCoordPointer(2, GL_FLOAT, 0, block_texture_uad);
                                     glDrawElements(GL_TRIANGLES, blockIncCnt_uad, GL_UNSIGNED_INT, block_Ind_uad);
                                 glPopMatrix();
+                            }
+                            int randome = rand();
+                            randome %= 500;
+                            if(randome == 1)
+                            {
+                                if(world[chunkx][chunky][x][y][z] == 3)
+                                {
+                                    for(int zz = z+1; zz < 256; zz++)
+                                    {
+                                        if(world[chunkx][chunky][x][y][zz] != 0) break;
+                                        if(zz == 255)
+                                        {
+                                            if(GetBlockID(x+dcx+1, y+dcy, z) == 2 || GetBlockID(x+dcx-1, y+dcy, z) == 2 || GetBlockID(x+dcx, y+dcy+1, z) == 2 || GetBlockID(x+dcx, y+dcy-1, z) == 2 || GetBlockID(x+dcx+1, y+dcy, z+1) == 2 || GetBlockID(x+dcx-1, y+dcy, z+1) == 2 || GetBlockID(x+dcx, y+dcy+1, z+1) == 2 || GetBlockID(x+dcx, y+dcy-1, z+1) == 2 || GetBlockID(x+dcx+1, y+dcy, z-1) == 2 || GetBlockID(x+dcx-1, y+dcy, z-1) == 2 || GetBlockID(x+dcx, y+dcy+1, z-1) == 2 || GetBlockID(x+dcx, y+dcy-1, z-1) == 2) world[chunkx][chunky][x][y][z] = 2;
+                                        }
+                                    }
+                                }
+                                if(world[chunkx][chunky][x][y][z] == 2)
+                                {
+                                    if(world[chunkx][chunky][x][y][z+1] != 0) world[chunkx][chunky][x][y][z] = 3;
+                                }
                             }
                             if(world[chunkx][chunky][x][y][z] != 0) dcnt++;
                         }
@@ -915,6 +1110,7 @@ void SaveWorld()
     if(!DirectoryExists(path)) mkdir(path);
     FILE *level;
     FILE *file_world;
+    FILE *file_version;
 
     sprintf(path, "%s\\saves\\world\\level.dat", buffer);
 
@@ -937,6 +1133,19 @@ void SaveWorld()
 
     fwrite(world, 1, sizeof(world), file_world);
     fclose(file_world);
+
+    sprintf(path, "%s\\saves\\world\\version.dat", buffer);
+
+    file_version = fopen(path, "w");
+
+    if(file_version == NULL) creat(path, S_IREAD|S_IWRITE);
+
+    file_version = fopen(path, "w");
+
+    char version[] = OPENCRAFT_VERSION;
+
+    fwrite(version, 1, sizeof(version), file_version);
+    fclose(file_version);
 }
 
 void EntityAI(int j)
@@ -1240,6 +1449,24 @@ void Menu_Show()
     glEnable(GL_DEPTH_TEST);
 }
 
+int avgnoov(int si_a, int si_b)
+{
+    if ((si_b > 0) && (si_a > (INT_MAX - si_b)))
+    {
+        if (si_a >= si_b) return si_b + (si_a - si_b) / 2;
+        else return si_a + (si_b - si_a) / 2;
+    }
+    else if ((si_b < 0) && (si_a < (INT_MIN - si_b)))
+    {
+        if(si_a <= si_b) return si_b + (si_a - si_b) / 2;
+        else return si_a + (si_b - si_a) / 2;
+    }
+    else
+    {
+        return (si_a + si_b) / 2;
+    }
+}
+
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
 {
     PIXELFORMATDESCRIPTOR pfd;
@@ -1305,14 +1532,22 @@ int WINAPI WinMain(HINSTANCE hInstance,
     if (!RegisterClassEx(&wcex))
         return 0;
 
+    HDC hDCScreen = GetDC(NULL);
+    int Horres = GetDeviceCaps(hDCScreen, HORZRES);
+    int Vertres = GetDeviceCaps(hDCScreen, VERTRES);
+    ReleaseDC(NULL, hDCScreen);
+
+    char title[50];
+    sprintf(title, "Opencraft %s", OPENCRAFT_VERSION);
+
     hwnd = CreateWindowEx(0,
                           "Opencraft",
-                          "Opencraft rd-20201231",
-                          WS_OVERLAPPEDWINDOW,
+                          title,
+                          WS_POPUP,
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
-                          800,
-                          600,
+                          Horres,
+                          Vertres,
                           NULL,
                           NULL,
                           hInstance,
