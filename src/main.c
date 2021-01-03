@@ -11,7 +11,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "oc-031701"
+#define OPENCRAFT_VERSION "0.0.1a"
 
 BOOL inverted_y;
 
@@ -26,6 +26,8 @@ int stone_texture;
 int sapling_texture;
 
 int man_texture;
+
+int ascii_texture;
 
 int icons_texture;
 
@@ -190,6 +192,9 @@ GLuint plantInd[] = {0,1,2, 2,3,0, 4,5,6, 6,7,4};
 int plantIndCnt = sizeof(plantInd) / sizeof(GLuint);
 
 float block_inventory_flat[] = {0,0, 64,0, 64,64, 0,64};
+
+float rectCoord[] = {0,0, 16,0, 16,16, 0,16};
+float rectTex[] = {0,0, 1,0, 1,1, 0,1};
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -427,6 +432,8 @@ void Game_Init()
     LoadTexture("textures/blocks/sapling.png", &sapling_texture);
 
     LoadTexture("textures/entity/man.png", &man_texture);
+
+    LoadTexture("textures/font/ascii.png", &ascii_texture);
 
     LoadTexture("textures/gui/icons.png", &icons_texture);
     glEnable(GL_DEPTH_TEST);
@@ -1500,53 +1507,56 @@ void Menu_Show()
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
-        glVertexPointer(2, GL_FLOAT, 0, cursor);
-        glTexCoordPointer(2, GL_FLOAT, 0, cursor_texture);
-        glBindTexture(GL_TEXTURE_2D, icons_texture);
+    glVertexPointer(2, GL_FLOAT, 0, cursor);
+    glTexCoordPointer(2, GL_FLOAT, 0, cursor_texture);
+    glBindTexture(GL_TEXTURE_2D, icons_texture);
+    glPushMatrix();
+        glTranslatef(curx, cury, 0);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glPopMatrix();
+
+    curx = scrSize.x - 64 - 5;
+    cury = 20;
+
+    if(select_inv == 1) glBindTexture(GL_TEXTURE_2D, stone_texture);
+    if(select_inv == 2) glBindTexture(GL_TEXTURE_2D, dirt_texture);
+    if(select_inv == 3) glBindTexture(GL_TEXTURE_2D, cobblestone_texture);
+    if(select_inv == 4) glBindTexture(GL_TEXTURE_2D, planks_texture);
+    if(select_inv == 6) glBindTexture(GL_TEXTURE_2D, sapling_texture);
+
+    if(select_inv != 6) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
+    else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
+    glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+    glPushMatrix();
+        if(select_inv != 6) glTranslatef(curx, cury, 0);
+        else glTranslatef(curx, cury-16, 0);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glPopMatrix();
+
+    if(select_inv != 6)
+    {
+        glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
+        glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
         glPushMatrix();
             glTranslatef(curx, cury, 0);
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         glPopMatrix();
 
-        curx = scrSize.x - 64 - 5;
-        cury = 20;
-
-        if(select_inv == 1) glBindTexture(GL_TEXTURE_2D, stone_texture);
-        if(select_inv == 2) glBindTexture(GL_TEXTURE_2D, dirt_texture);
-        if(select_inv == 3) glBindTexture(GL_TEXTURE_2D, cobblestone_texture);
-        if(select_inv == 4) glBindTexture(GL_TEXTURE_2D, planks_texture);
-        if(select_inv == 6) glBindTexture(GL_TEXTURE_2D, sapling_texture);
-
-        if(select_inv != 6) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
-        else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
+        glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
         glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
         glPushMatrix();
-            if(select_inv != 6) glTranslatef(curx, cury, 0);
-            else glTranslatef(curx, cury-16, 0);
+            glTranslatef(curx, cury, 0);
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         glPopMatrix();
+    }
 
-        if(select_inv != 6)
-        {
-            glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
-            glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
-            glPushMatrix();
-                glTranslatef(curx, cury, 0);
-                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-            glPopMatrix();
-
-            glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
-            glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
-            glPushMatrix();
-                glTranslatef(curx, cury, 0);
-                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-            glPopMatrix();
-        }
+    glPushMatrix();
+        glTranslatef(0,0,0);
+        Text_Out(OPENCRAFT_VERSION);
+    glPopMatrix();
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
-    glEnable(GL_TEXTURE_2D);
 
     glEnable(GL_LIGHTING);
     glEnable(GL_DEPTH_TEST);
@@ -1568,6 +1578,37 @@ int avgnoov(int si_a, int si_b)
     {
         return (si_a + si_b) / 2;
     }
+}
+
+void Text_Out(char *text)
+{
+    glPushMatrix();
+        glBindTexture(GL_TEXTURE_2D, ascii_texture);
+        glVertexPointer(2, GL_FLOAT, 0, rectCoord);
+        glTexCoordPointer(2, GL_FLOAT, 0, rectTex);
+
+        static float charSize = 1/16.0;
+        while(*text)
+        {
+            char c = *text;
+            int y = c >> 4;
+            int x = c & 0b1111;
+            struct {float left, right, top, bottom} rct;
+            rct.left = x * charSize;
+            rct.right = rct.left + charSize;
+            rct.bottom = y * charSize;
+            rct.top = rct.bottom + charSize;
+
+            rectTex[0] = rectTex[6] = rct.left;
+            rectTex[2] = rectTex[4] = rct.right;
+            rectTex[1] = rectTex[3] = rct.bottom;
+            rectTex[5] = rectTex[7] = rct.top;
+
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            text++;
+            glTranslatef(10,0,0);
+        }
+    glPopMatrix();
 }
 
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
