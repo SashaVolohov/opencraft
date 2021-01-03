@@ -1,3 +1,6 @@
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <windows.h>
 #include <direct.h>
 #include <gl/glu.h>
@@ -8,10 +11,9 @@
 
 #include "camera.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#define OPENCRAFT_VERSION "oc-031701"
 
-#define OPENCRAFT_VERSION "rd-031607"
+BOOL inverted_y;
 
 // Текстуры
 
@@ -34,6 +36,7 @@ float camera_z_in_jump;
 int timer = 0;
 int timer_r = 0;
 int timer_g = 0;
+int timer_y = 0;
 
 int select_inv = 1;
 
@@ -671,6 +674,12 @@ void Game_Show()
                 break;
             }
         }
+    }
+    if(GetKeyState('Y') < 0 && timer_y <= 0)
+    {
+        if(!inverted_y) inverted_y = TRUE;
+        else inverted_y = FALSE;
+        timer_y = 10;
     }
     if(GetKeyState('1') < 0) select_inv = 1;
     if(GetKeyState('2') < 0) select_inv = 2;
@@ -1698,6 +1707,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
             timer--;
             timer_r--;
             timer_g--;
+            timer_y--;
         }
     }
 

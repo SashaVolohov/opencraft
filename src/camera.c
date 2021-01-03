@@ -4,6 +4,8 @@
 #include <windows.h>
 #include <math.h>
 
+BOOL inverted_y = FALSE;
+
 struct SCamera camera = {128,128,65,0,0};
 
 void Camera_Apply()
@@ -19,7 +21,8 @@ void Camera_Rotation(float xAngle, float zAngle)
     camera.Zrot += zAngle;
     if(camera.Zrot < 0) camera.Zrot += 360;
     if(camera.Zrot > 360) camera.Zrot -= 360;
-    camera.Xrot += xAngle;
+    if(inverted_y == FALSE) camera.Xrot += xAngle;
+    else camera.Xrot -= xAngle;
     if(camera.Xrot < 0) camera.Xrot = 0;
     if(camera.Xrot > 180) camera.Xrot = 180;
 }

@@ -36,10 +36,10 @@
 	<windows.h>
 	<math.h>
 
-1609351717 d:\Документы\Мои проекты\opencraft\camera.h
+1609677169 d:\Документы\Мои проекты\opencraft\camera.h
 	<windows.h>
 
-1609671436 source:d:\Документы\Мои проекты\opencraft\main.c
+1609675645 source:d:\Документы\Мои проекты\opencraft\main.c
 	<windows.h>
 	<direct.h>
 	<gl/glu.h>
@@ -66,4 +66,45 @@
 	<emmintrin.h>
 	<intrin.h>
 	<arm_neon.h>
+
+1609678697 source:d:\Документы\Мои проекты\opencraft\src\camera.c
+	<GL/gl.h>
+	"camera.h"
+	<windows.h>
+	<math.h>
+
+1609678518 d:\Документы\Мои проекты\opencraft\src\camera.h
+	<windows.h>
+
+1609678544 source:d:\Документы\Мои проекты\opencraft\src\main.c
+	"stb_image.h"
+	<windows.h>
+	<direct.h>
+	<gl/glu.h>
+	<io.h>
+	<sys/types.h>
+	<sys/stat.h>
+	<time.h>
+	"main.h"
+	"camera.h"
+
+1609678585 d:\Документы\Мои проекты\opencraft\src\stb_image.h
+	"stb_image.h"
+	<stdio.h>
+	<stdlib.h>
+	<stdarg.h>
+	<stddef.h>
+	<stdlib.h>
+	<string.h>
+	<limits.h>
+	<math.h>
+	<stdio.h>
+	<assert.h>
+	<stdint.h>
+	<emmintrin.h>
+	<intrin.h>
+	<arm_neon.h>
+
+1609678527 d:\Документы\Мои проекты\opencraft\src\main.h
+	<windows.h>
 
