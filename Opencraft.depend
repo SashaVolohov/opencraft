@@ -30,7 +30,7 @@
 	<intrin.h>
 	<arm_neon.h>
 
-1609586027 source:d:\Документы\Мои проекты\opencraft\camera.c
+1609597725 source:d:\Документы\Мои проекты\opencraft\camera.c
 	<GL/gl.h>
 	"camera.h"
 	<windows.h>
@@ -39,7 +39,7 @@
 1609351717 d:\Документы\Мои проекты\opencraft\camera.h
 	<windows.h>
 
-1609590285 source:d:\Документы\Мои проекты\opencraft\main.c
+1609671436 source:d:\Документы\Мои проекты\opencraft\main.c
 	<windows.h>
 	<direct.h>
 	<gl/glu.h>

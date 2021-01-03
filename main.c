@@ -11,7 +11,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#define OPENCRAFT_VERSION "rd-021647"
+#define OPENCRAFT_VERSION "rd-031600"
 
 // Текстуры
 
@@ -21,6 +21,7 @@ int grass_side_texture;
 int dirt_texture;
 int planks_texture;
 int stone_texture;
+int sapling_texture;
 
 int man_texture;
 
@@ -179,14 +180,30 @@ float block_inventory_3[] = {0,0, 32, -16, 64, 0, 32, 16};
 
 float block_inventory_texture[] = {0,0, 1,0, 1,1, 0,1};
 
+float plant[] = {-0.5, 0, 0, 0.5, 0, 0, 0.5,0,1, -0.5,0,1, 0,-0.5,0, 0,0.5,0, 0,0.5,1, 0, -0.5, 1};
+float plant_texture[] = {0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0};
+GLuint plantInd[] = {0,1,2, 2,3,0, 4,5,6, 6,7,4};
+
+int plantIndCnt = sizeof(plantInd) / sizeof(GLuint);
+
+float block_inventory_flat[] = {0,0, 64,0, 64,64, 0,64};
+
 void GenerateNewChunk(int chunkx, int chunky)
 {
     int coolz = 0;
+    int oldcoolz = 0;
+    int gen_climbs = 0;
     for(int y = 0; y <= 15; y++)
     {
         for(int x = 0; x <= 15; x++)
         {
             coolz = 0;
+            int randomcool = rand();
+            randomcool %= 1000;
+            if(randomcool == 1 && gen_climbs == 0)
+            {
+                gen_climbs = 1;
+            }
             if(x == 0 && y == 0 && chunkx == 0 && chunky == 0) coolz = 45 + rand() % 5;
             else if(x == 0 && chunkx != 0)
             {
@@ -223,9 +240,18 @@ void GenerateNewChunk(int chunkx, int chunky)
                 int we = 0;
                 we = zxx;
                 printf("%d, %d -- %d, %d\n", zr, zxx, x, y);
-                if(oror <= 30) coolz = we + 1;
-                else if(oror >= 30 && oror <= 60) coolz = we - 1;
-                else coolz = we;
+                if(gen_climbs == 0)
+                {
+                    if(oror <= 30) coolz = we + 1;
+                    else if(oror >= 30 && oror <= 60) coolz = we - 1;
+                    else coolz = we;
+                }
+                else
+                {
+                    if(oror > 0 && oror < 300) coolz = we + 2;
+                    else coolz = we + 1;
+                    if(coolz >= 100) gen_climbs = 0;
+                }
             }
             else if((y != 0 && chunky == 0) || chunky != 0)
             {
@@ -273,9 +299,18 @@ void GenerateNewChunk(int chunkx, int chunky)
                 int we = 0;
                 if(x != 0) we = avgnoov(zr, zxx);
                 else we = zr;
-                if(oror <= 30) coolz = we + 1;
-                else if(oror >= 30 && oror <= 60) coolz = we - 1;
-                else coolz = we;
+                if(gen_climbs == 0)
+                {
+                    if(oror <= 30) coolz = we + 1;
+                    else if(oror >= 30 && oror <= 60) coolz = we - 1;
+                    else coolz = we;
+                }
+                else
+                {
+                    if(oror > 0 && oror < 300) coolz = we + 2;
+                    else coolz = we + 1;
+                    if(coolz >= 100) gen_climbs = 0;
+                }
             }
             else
             {
@@ -291,9 +326,18 @@ void GenerateNewChunk(int chunkx, int chunky)
                             break;
                         }
                     }
-                    if(oror <= 30) coolz = ze + 1;
-                    else if(oror >= 30 && oror <= 60) coolz = ze - 1;
-                    else coolz = ze;
+                    if(gen_climbs == 0)
+                    {
+                        if(oror <= 30) coolz = ze + 1;
+                        else if(oror >= 30 && oror <= 60) coolz = ze - 1;
+                        else coolz = ze;
+                    }
+                    else
+                    {
+                        if(oror > 0 && oror < 300) coolz = ze + 2;
+                        else coolz = ze + 1;
+                        if(coolz >= 100) gen_climbs = 0;
+                    }
                 }
                 else
                 {
@@ -305,16 +349,27 @@ void GenerateNewChunk(int chunkx, int chunky)
                             break;
                         }
                     }
-                    if(oror <= 30) coolz = ze + 1;
-                    else if(oror >= 30 && oror <= 60) coolz = ze - 1;
-                    else coolz = ze;
+                    if(gen_climbs == 0)
+                    {
+                        if(oror <= 30) coolz = ze + 1;
+                        else if(oror >= 30 && oror <= 60) coolz = ze - 1;
+                        else coolz = ze;
+                    }
+                    else
+                    {
+                        if(oror > 0 && oror < 300) coolz = ze + 2;
+                        else coolz = ze + 1;
+                        if(coolz >= 100) gen_climbs = 0;
+                    }
                 }
             }
             for(int z = 0; z <= 255; z++)
             {
-                if(z < coolz) world[chunkx][chunky][x][y][z] = 5;
+                if(z < coolz && z - coolz >= -3) world[chunkx][chunky][x][y][z] = 3;
+                if(z < coolz && z - coolz < -3) world[chunkx][chunky][x][y][z] = 5;
                 if(z == coolz) world[chunkx][chunky][x][y][z] = 2;
                 if(z > coolz) world[chunkx][chunky][x][y][z] = 0;
+                oldcoolz = coolz;
             }
         }
     }
@@ -366,6 +421,7 @@ void Game_Init()
     LoadTexture("textures/blocks/dirt.png", &dirt_texture);
     LoadTexture("textures/blocks/planks.png", &planks_texture);
     LoadTexture("textures/blocks/stone.png", &stone_texture);
+    LoadTexture("textures/blocks/sapling.png", &sapling_texture);
 
     LoadTexture("textures/entity/man.png", &man_texture);
 
@@ -525,7 +581,7 @@ void Game_Show()
                 timer = 3;
                 jump_tmp = 0;
             }
-            if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0)
+            if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
             {
                 is_jumping = FALSE;
                 jump_down = FALSE;
@@ -556,7 +612,7 @@ void Game_Show()
             is_fly = TRUE;
         }
     }
-    else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping)
+    else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping)
     {
         camera.z -= 0.3;
         is_fly = TRUE;
@@ -620,6 +676,7 @@ void Game_Show()
     if(GetKeyState('2') < 0) select_inv = 2;
     if(GetKeyState('3') < 0) select_inv = 3;
     if(GetKeyState('4') < 0) select_inv = 4;
+    if(GetKeyState('6') < 0) select_inv = 6;
 
     int dcnt = 0;
     glPushMatrix();
@@ -652,7 +709,7 @@ void Game_Show()
                             int dcx = 16*chunkx;
                             int dcy = 16*chunky;
                             if(camera.x + 9 < x + dcx || camera.x - 9 > x + dcx || camera.y + 9 < y + dcy || camera.y - 9 > y + dcy || camera.z + 9 < z || camera.z - 9 > z) continue;
-                            if(world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && x != 0 && x != 15 &&  y != 0 && y != 15 && z != 0 && z != 255) continue;
+                            if(world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && x != 0 && x != 15 &&  y != 0 && y != 15 && z != 0 && z != 255 && world[chunkx][chunky][x][y][z] != 6 && world[chunkx][chunky][x+1][y][z] != 6 && world[chunkx][chunky][x-1][y][z] != 6 && world[chunkx][chunky][x][y+1][z] != 6 && world[chunkx][chunky][x][y-1][z] != 6 && world[chunkx][chunky][x][y][z+1] != 6 && world[chunkx][chunky][x][y][z-1] != 6) continue;
                             if(world[chunkx][chunky][x][y][z] == 1)
                             {
                                 glVertexPointer(3, GL_FLOAT, 0, block);
@@ -732,6 +789,20 @@ void Game_Show()
                                     glDrawElements(GL_TRIANGLES, blockIncCnt_uad, GL_UNSIGNED_INT, block_Ind_uad);
                                 glPopMatrix();
                             }
+                            else if(world[chunkx][chunky][x][y][z] == 6)
+                            {
+                                glVertexPointer(3, GL_FLOAT, 0, plant);
+                                glNormal3f(0,0,1);
+                                glColor3f(0.7, 0.7, 0.7);
+                                glBindTexture(GL_TEXTURE_2D, sapling_texture);
+                                glTexCoordPointer(2, GL_FLOAT, 0, plant_texture);
+                                glPushMatrix();
+                                    glTranslatef(x+dcx+0.5, y+dcy+0.5, z);
+                                    glDrawElements(GL_TRIANGLES, plantIndCnt, GL_UNSIGNED_INT, plantInd);
+                                glPopMatrix();
+                                if(world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z+1] != 6) world[chunkx][chunky][x][y][z] = 0;
+                                if(world[chunkx][chunky][x][y][z-1] != 2 && world[chunkx][chunky][x][y][z-1] != 3) world[chunkx][chunky][x][y][z] = 0;
+                            }
                             int randome = rand();
                             randome %= 500;
                             if(randome == 1)
@@ -740,7 +811,7 @@ void Game_Show()
                                 {
                                     for(int zz = z+1; zz < 256; zz++)
                                     {
-                                        if(world[chunkx][chunky][x][y][zz] != 0) break;
+                                        if(world[chunkx][chunky][x][y][zz] != 0 && world[chunkx][chunky][x][y][z+1] != 6) break;
                                         if(zz == 255)
                                         {
                                             if(GetBlockID(x+dcx+1, y+dcy, z) == 2 || GetBlockID(x+dcx-1, y+dcy, z) == 2 || GetBlockID(x+dcx, y+dcy+1, z) == 2 || GetBlockID(x+dcx, y+dcy-1, z) == 2 || GetBlockID(x+dcx+1, y+dcy, z+1) == 2 || GetBlockID(x+dcx-1, y+dcy, z+1) == 2 || GetBlockID(x+dcx, y+dcy+1, z+1) == 2 || GetBlockID(x+dcx, y+dcy-1, z+1) == 2 || GetBlockID(x+dcx+1, y+dcy, z-1) == 2 || GetBlockID(x+dcx-1, y+dcy, z-1) == 2 || GetBlockID(x+dcx, y+dcy+1, z-1) == 2 || GetBlockID(x+dcx, y+dcy-1, z-1) == 2) world[chunkx][chunky][x][y][z] = 2;
@@ -749,7 +820,7 @@ void Game_Show()
                                 }
                                 if(world[chunkx][chunky][x][y][z] == 2)
                                 {
-                                    if(world[chunkx][chunky][x][y][z+1] != 0) world[chunkx][chunky][x][y][z] = 3;
+                                    if(world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z+1] != 6) world[chunkx][chunky][x][y][z] = 3;
                                 }
                             }
                             if(world[chunkx][chunky][x][y][z] != 0) dcnt++;
@@ -947,6 +1018,7 @@ void Game_Show()
                     if(Sprites[q].block_id == 3) glBindTexture(GL_TEXTURE_2D, dirt_texture);
                     if(Sprites[q].block_id == 4) glBindTexture(GL_TEXTURE_2D, planks_texture);
                     if(Sprites[q].block_id == 5) glBindTexture(GL_TEXTURE_2D, stone_texture);
+                    if(Sprites[q].block_id == 6) glBindTexture(GL_TEXTURE_2D, sapling_texture);
                     if(e == 0 || e == 3 || e == 9) glTexCoordPointer(2, GL_FLOAT, 0, sprite_texture);
                     else if(e == 1 || e == 4 || e == 8) glTexCoordPointer(2, GL_FLOAT, 0, sprite_2_texture);
                     else glTexCoordPointer(2, GL_FLOAT, 0, sprite_3_texture);
@@ -1070,6 +1142,7 @@ int PlayerSetBlock(BOOL create)
                     if(select_inv == 2) world[chunkx][chunky][X][Y][Z] = 3;
                     if(select_inv == 3) world[chunkx][chunky][X][Y][Z] = 1;
                     if(select_inv == 4) world[chunkx][chunky][X][Y][Z] = 4;
+                    if(select_inv == 6) world[chunkx][chunky][X][Y][Z] = 6;
                 }
             }
         }
@@ -1268,56 +1341,71 @@ void EntityAI(int j)
         if(new_cx >= -0.3 && new_cx < 0 && Entities[j].z < 45) Entities[j].x = -0.4;
         if(new_cy >= -0.3 && new_cy < 0 && Entities[j].z < 45) Entities[j].y = -0.4;
     }
-    else if(world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 0 && world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 0)
+    else if(world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 0 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 6)
     {
-        float ccx = (int)new_cx;
-        float ccy = (int)new_cy;
-        if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 0)
+        if(world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 0 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 6)
         {
-            if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
-        }
-        if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 0)
-        {
-            if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
-        }
-        if(new_cy < Entities[j].y && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z) != 0)
-        {
-            if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
-        }
-        if(new_cy > Entities[j].y && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z) != 0)
-        {
-            if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
-        }
+            float ccx = (int)new_cx;
+            float ccy = (int)new_cy;
+            if(GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 6)
+            {
+                if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 0)
+                {
+                    if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+                }
+            }
+            if(GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 6)
+            {
+                if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 0)
+                {
+                    if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
+                }
+            }
+            if(GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 6)
+            {
+                if(new_cy < Entities[j].y && GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 0)
+                {
+                    if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+                }
+            }
+            if(GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 6)
+            {
+                if(new_cy > Entities[j].y && GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 0)
+                {
+                    if(new_cy >= ccy + 0.3) new_cy = ccy + 0.3;
+                }
+            }
 
-        if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 0)
-        {
-            if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+            if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 0)
+            {
+                if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+            }
+            if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 0)
+            {
+                if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
+            }
+            if(new_cy < Entities[j].y && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 0)
+            {
+                if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+            }
+            if(new_cy > Entities[j].y && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 0)
+            {
+                if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
+            }
+            Entities[j].x = new_cx;
+            Entities[j].y = new_cy;
         }
-        if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 0)
-        {
-            if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
-        }
-        if(new_cy < Entities[j].y && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 0)
-        {
-            if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
-        }
-        if(new_cy > Entities[j].y && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 0)
-        {
-            if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
-        }
-        Entities[j].x = new_cx;
-        Entities[j].y = new_cy;
     }
     if(Entities[j].x <= -0.3 || Entities[j].y <= -0.3 || Entities[j].x >= 256 || Entities[j].y >= 256 || Entities[j].z <= -0.01 || Entities[j].z >= 256)
     {
         Entities[j].z -= 0.3;
     }
-    else if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 0 && Entities[j].is_jumping == 0)
+    else if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 0 || GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 6)
     {
-        Entities[j].z -= 0.3;
+        if(Entities[j].is_jumping == 0)Entities[j].z -= 0.3;
     }
     float old_z = Entities[j].z;
-    if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 0 && (int)Entities[j].z < Entities[j].z && Entities[j].is_jumping == 0)
+    if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 0 && (int)Entities[j].z < Entities[j].z && Entities[j].is_jumping == 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 6)
     {
         Entities[j].z -= 0.3;
         if(Entities[j].z < (int)old_z) Entities[j].z = (int)old_z;
@@ -1337,7 +1425,7 @@ void EntityAI(int j)
                 Entities[j].jump_down = 0;
                 Entities[j].jump_tmp = 0;
             }
-            if(Entities[j].jump_down == 1 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z != 0))
+            if(Entities[j].jump_down == 1 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z) != 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 6)
             {
                 Entities[j].is_jumping = 0;
                 Entities[j].jump_down = 0;
@@ -1418,27 +1506,33 @@ void Menu_Show()
         if(select_inv == 2) glBindTexture(GL_TEXTURE_2D, dirt_texture);
         if(select_inv == 3) glBindTexture(GL_TEXTURE_2D, cobblestone_texture);
         if(select_inv == 4) glBindTexture(GL_TEXTURE_2D, planks_texture);
+        if(select_inv == 6) glBindTexture(GL_TEXTURE_2D, sapling_texture);
 
-        glVertexPointer(2, GL_FLOAT, 0, block_inventory);
+        if(select_inv != 6) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
+        else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
         glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
         glPushMatrix();
-            glTranslatef(curx, cury, 0);
+            if(select_inv != 6) glTranslatef(curx, cury, 0);
+            else glTranslatef(curx, cury-16, 0);
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         glPopMatrix();
 
-        glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
-        glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
-        glPushMatrix();
-            glTranslatef(curx, cury, 0);
-            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-        glPopMatrix();
+        if(select_inv != 6)
+        {
+            glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
+            glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+            glPushMatrix();
+                glTranslatef(curx, cury, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glPopMatrix();
 
-        glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
-        glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
-        glPushMatrix();
-            glTranslatef(curx, cury, 0);
-            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-        glPopMatrix();
+            glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
+            glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+            glPushMatrix();
+                glTranslatef(curx, cury, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glPopMatrix();
+        }
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -1543,11 +1637,11 @@ int WINAPI WinMain(HINSTANCE hInstance,
     hwnd = CreateWindowEx(0,
                           "Opencraft",
                           title,
-                          WS_POPUP,
+                          WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
-                          Horres,
-                          Vertres,
+                          800,
+                          600,
                           NULL,
                           NULL,
                           hInstance,
