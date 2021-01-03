@@ -11,7 +11,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.1a"
+#define OPENCRAFT_VERSION "0.0.3a"
 
 BOOL inverted_y;
 
@@ -247,7 +247,6 @@ void GenerateNewChunk(int chunkx, int chunky)
                 int oror = rand() % 500;
                 int we = 0;
                 we = zxx;
-                printf("%d, %d -- %d, %d\n", zr, zxx, x, y);
                 if(gen_climbs == 0)
                 {
                     if(oror <= 30) coolz = we + 1;
@@ -383,6 +382,49 @@ void GenerateNewChunk(int chunkx, int chunky)
     }
 }
 
+void GenerateCaves()
+{
+    int g3 = 0;
+    for(int y = 0; y < 256; y++)
+    {
+        for(int x = 0; x < 256; x++)
+        {
+            int randomcool = rand();
+            randomcool %= 10000;
+            if(randomcool == 9999)
+            {
+                int randomc = rand();
+                randomc %= 100;
+                for(int zx = 255; zx >= 0; zx--)
+                {
+                    if(GetBlockID(x, y, zx) != 0)
+                    {
+                        for(int zz = zx; zz >= 11; zz--)
+                        {
+                            for(int xx = 0; xx <= 4; xx++)
+                            {
+                                for(int zy = 0; zy <= 4; zy++)
+                                {
+                                    SetBlock(0, x, y+xx, zz+zy);
+                                }
+                            }
+                            if(randomc > 0 && randomc < 50) x++;
+                            else x--;
+                            int randomc2 = rand();
+                            randomc2 %= 100;
+                            if(randomc2 < 30) y++;
+                            else if(randomc2 < 60) y--;
+
+                        }
+                        g3++;
+                        if(g3 >= 3) return;
+                    }
+                }
+            }
+        }
+    }
+}
+
 void GenerateNewWorld()
 {
     for(int y = 0; y <= 15; y++)
@@ -392,6 +434,7 @@ void GenerateNewWorld()
             GenerateNewChunk(x, y);
         }
     }
+    GenerateCaves();
     for(int zx = 255; zx >= 0; zx--)
     {
         if(GetBlockID((int)camera.x, (int)camera.y, zx) != 0)
@@ -657,8 +700,8 @@ void Game_Show()
             {
                 if(GetBlockID(x, y, i) == 0 && GetBlockID(x, y, i+1) == 0)
                 {
-                    camera.x = x;
-                    camera.y = y;
+                    camera.x = x + 0.5;
+                    camera.y = y + 0.5;
                     camera.z = i;
                     success = TRUE;
                     timer_r = 10;
@@ -1175,6 +1218,18 @@ int GetBlockID(int x, int y, int z)
     int fx = x - dcx;
     int fy = y - dcy;
     return world[chunkx][chunky][fx][fy][z];
+}
+
+int SetBlock(int id, int x, int y, int z)
+{
+    if(x < 0 || x >= 256 || y < 0 || y >= 256 || z < 0 || z >= 256) return 0;
+    int chunkx = x / 16;
+    int chunky = y / 16;
+    int dcx = 16*chunkx;
+    int dcy = 16*chunky;
+    int fx = x - dcx;
+    int fy = y - dcy;
+    world[chunkx][chunky][fx][fy][z] = id;
 }
 
 BOOL DirectoryExists(const char* absolutePath)

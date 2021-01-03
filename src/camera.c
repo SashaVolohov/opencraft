@@ -6,7 +6,7 @@
 
 BOOL inverted_y = FALSE;
 
-struct SCamera camera = {128,128,65,0,0};
+struct SCamera camera = {128.5,128.5,65,0,0};
 
 void Camera_Apply()
 {
