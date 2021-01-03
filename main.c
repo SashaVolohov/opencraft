@@ -11,7 +11,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#define OPENCRAFT_VERSION "rd-031600"
+#define OPENCRAFT_VERSION "rd-031607"
 
 // Текстуры
 
