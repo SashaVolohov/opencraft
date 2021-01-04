@@ -11,7 +11,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.4a"
+#define OPENCRAFT_VERSION "0.0.9a"
 
 BOOL inverted_y;
 
@@ -195,6 +195,13 @@ float block_inventory_flat[] = {0,0, 64,0, 64,64, 0,64};
 
 float rectCoord[] = {0,0, 16,0, 16,16, 0,16};
 float rectTex[] = {0,0, 1,0, 1,1, 0,1};
+
+BOOL world_visible[16][16][16][16][256];
+
+int update_chunks = 0;
+int timer_del_chunks = 60;
+
+BOOL chunk_update[16][16];
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -577,6 +584,13 @@ void Game_Init()
         }
         Entities[i].entity_id = 1;
     }
+    for(int chunky = 0; chunky < 16; chunky++)
+    {
+        for(int chunkx = 0; chunkx < 16; chunkx++)
+        {
+           UpdateChunk(chunkx, chunky);
+        }
+    }
 }
 void WndResize(int x, int y)
 {
@@ -766,7 +780,7 @@ void Game_Show()
                             int dcx = 16*chunkx;
                             int dcy = 16*chunky;
                             if(camera.x + 9 < x + dcx || camera.x - 9 > x + dcx || camera.y + 9 < y + dcy || camera.y - 9 > y + dcy || camera.z + 9 < z || camera.z - 9 > z) continue;
-                            if(world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && x != 0 && x != 15 &&  y != 0 && y != 15 && z != 0 && z != 255 && world[chunkx][chunky][x][y][z] != 6 && world[chunkx][chunky][x+1][y][z] != 6 && world[chunkx][chunky][x-1][y][z] != 6 && world[chunkx][chunky][x][y+1][z] != 6 && world[chunkx][chunky][x][y-1][z] != 6 && world[chunkx][chunky][x][y][z+1] != 6 && world[chunkx][chunky][x][y][z-1] != 6) continue;
+                            if(!world_visible[chunkx][chunky][x][y][z]) continue;
                             if(world[chunkx][chunky][x][y][z] == 1)
                             {
                                 glVertexPointer(3, GL_FLOAT, 0, block);
@@ -1180,6 +1194,7 @@ int PlayerSetBlock(BOOL create)
                     }
                 }
                 world[chunkx][chunky][X][Y][Z] = 0;
+                UpdateChunk(chunkx, chunky);
             }
             else
             {
@@ -1202,6 +1217,7 @@ int PlayerSetBlock(BOOL create)
                     if(select_inv == 3) world[chunkx][chunky][X][Y][Z] = 1;
                     if(select_inv == 4) world[chunkx][chunky][X][Y][Z] = 4;
                     if(select_inv == 6) world[chunkx][chunky][X][Y][Z] = 6;
+                    UpdateChunk(chunkx, chunky);
                 }
             }
         }
@@ -1610,6 +1626,26 @@ void Menu_Show()
         Text_Out(OPENCRAFT_VERSION);
     glPopMatrix();
 
+    static float framesPerSecond = 0.0f;
+    static float lastTime = 0.0f;
+    static int fps = 60;
+    float currentTime = GetTickCount() * 0.001f;
+    ++framesPerSecond;
+    if(currentTime - lastTime > 1.0f)
+    {
+        lastTime = currentTime;
+        fps = (int)framesPerSecond;
+        framesPerSecond = 0;
+        draw_cnt = 0;
+    }
+
+     glPushMatrix();
+        glTranslatef(0,15,0);
+        char line[50];
+        sprintf(line, "%d fps, %d обновлений чанков", fps, update_chunks);
+        Text_Out(line);
+    glPopMatrix();
+
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
@@ -1664,6 +1700,26 @@ void Text_Out(char *text)
             glTranslatef(10,0,0);
         }
     glPopMatrix();
+}
+
+void UpdateChunk(int chunkx, int chunky)
+{
+    for(int z = 0; z < 256; z++)
+    {
+        for(int y = 0; y < 16; y++)
+        {
+            for(int x = 0; x < 16; x++)
+            {
+                if(world[chunkx][chunky][x][y][z] != 0 && world[chunkx][chunky][x+1][y][z] != 0 && world[chunkx][chunky][x-1][y][z] != 0 && world[chunkx][chunky][x][y+1][z] != 0 && world[chunkx][chunky][x][y-1][z] != 0 && world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z-1] != 0 && x != 0 && x != 15 && y != 0 && y != 15 && z != 0 && z != 255 && world[chunkx][chunky][x][y][z] != 6 && world[chunkx][chunky][x+1][y][z] != 6 && world[chunkx][chunky][x-1][y][z] != 6 && world[chunkx][chunky][x][y+1][z] != 6 && world[chunkx][chunky][x][y-1][z] != 6 && world[chunkx][chunky][x][y][z+1] != 6 && world[chunkx][chunky][x][y][z-1] != 6) world_visible[chunkx][chunky][x][y][z] = FALSE;
+                else world_visible[chunkx][chunky][x][y][z] = TRUE;
+            }
+        }
+    }
+    if(chunk_update[chunkx][chunky] == FALSE)
+    {
+        update_chunks++;
+        chunk_update[chunkx][chunky] = TRUE;
+    }
 }
 
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
@@ -1745,8 +1801,8 @@ int WINAPI WinMain(HINSTANCE hInstance,
                           WS_OVERLAPPEDWINDOW,
                           CW_USEDEFAULT,
                           CW_USEDEFAULT,
-                          800,
-                          600,
+                          640,
+                          480,
                           NULL,
                           NULL,
                           hInstance,
@@ -1794,8 +1850,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
             SwapBuffers(hDC);
 
-            //ShowDebugInfo();
-
             SpritesManage();
 
             theta += 0,1080000108;
@@ -1804,6 +1858,19 @@ int WINAPI WinMain(HINSTANCE hInstance,
             timer_r--;
             timer_g--;
             timer_y--;
+            timer_del_chunks--;
+            if(timer_del_chunks == 0)
+            {
+                update_chunks = 0;
+                timer_del_chunks = 60;
+                for(int y = 0; y < 16; y++)
+                {
+                    for(int x = 0; x < 16; x++)
+                    {
+                        chunk_update[x][y] = FALSE;
+                    }
+                }
+            }
         }
     }
 
