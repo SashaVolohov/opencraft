@@ -11,7 +11,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.3a"
+#define OPENCRAFT_VERSION "0.0.4a"
 
 BOOL inverted_y;
 
@@ -627,25 +627,23 @@ void Game_Show()
             if(!jump_down) jump_tmp++;
             else jump_tmp--;
             if(jump_tmp == 9) jump_down = TRUE;
+            timer = 3;
             if(jump_tmp == 0 && jump_down)
             {
                 is_jumping = FALSE;
                 jump_down = FALSE;
-                timer = 3;
                 jump_tmp = 0;
             }
             if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
             {
                 is_jumping = FALSE;
                 jump_down = FALSE;
-                timer = 3;
                 jump_tmp = 0;
             }
             if(jump_down == FALSE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z + 2] != 0)
             {
                 is_jumping = FALSE;
                 jump_down = FALSE;
-                timer = 3;
                 jump_tmp = 0;
             }
         }
@@ -1197,6 +1195,8 @@ int PlayerSetBlock(BOOL create)
                 Z = bz;
                 if(world[chunkx][chunky][X][Y][Z] == 0)
                 {
+                    if((int)camera.x == (int)bx && (int)camera.y == (int)by && (int)camera.z == (int)bz) return;
+                    if((int)camera.x == (int)bx && (int)camera.y == (int)by && (int)camera.z+1 == (int)bz) return;
                     if(select_inv == 1) world[chunkx][chunky][X][Y][Z] = 5;
                     if(select_inv == 2) world[chunkx][chunky][X][Y][Z] = 3;
                     if(select_inv == 3) world[chunkx][chunky][X][Y][Z] = 1;
