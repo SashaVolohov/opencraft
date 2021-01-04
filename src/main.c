@@ -11,7 +11,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.9a"
+#define OPENCRAFT_VERSION "0.0.10a"
 
 BOOL inverted_y;
 
@@ -202,6 +202,10 @@ int update_chunks = 0;
 int timer_del_chunks = 60;
 
 BOOL chunk_update[16][16];
+
+BOOL afk = FALSE;
+
+BOOL place_blocks = FALSE;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -605,7 +609,7 @@ void Player_Move()
     Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
                          ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
                          ,0.2);
-    Camera_AutoMoveByMouse(scrSize.x/2, scrSize.y/2, 0.2);
+    if(afk == FALSE) Camera_AutoMoveByMouse(scrSize.x/2, scrSize.y/2, 0.2);
 }
 
 void Game_Show()
@@ -1142,7 +1146,7 @@ void ClientToOpenGL(int x, int y, double *ox, double *oy, double *oz)
     gluUnProject(x, y, z, mMatrix, pMatrix, vp, ox, oy, oz);
 }
 
-int PlayerSetBlock(BOOL create)
+int PlayerSetBlock()
 {
     float sz = 0.1;
     glMatrixMode(GL_PROJECTION);
@@ -1169,7 +1173,7 @@ int PlayerSetBlock(BOOL create)
 
         if(chunkx <= 15 && chunkx >= 0 && chunky <= 15 && chunky >= 0)
         {
-            if(create == FALSE)
+            if(place_blocks == FALSE)
             {
                 for(int i = 0; i < 100; i++)
                 {
@@ -1819,6 +1823,8 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
     Game_Init();
 
+    ShowCursor(FALSE);
+
     /* program main loop */
     while (!bQuit)
     {
@@ -1896,16 +1902,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             WndResize(LOWORD(lParam), HIWORD(lParam));
         break;
 
-        case WM_SETCURSOR:
-            ShowCursor(FALSE);
-        break;
-
         case WM_RBUTTONDOWN:
-            PlayerSetBlock(FALSE);
+            if(place_blocks == FALSE) place_blocks = TRUE;
+            else place_blocks = FALSE;
         break;
 
         case WM_LBUTTONDOWN:
-            PlayerSetBlock(TRUE);
+            if(afk == TRUE)
+            {
+                afk = FALSE;
+                ShowCursor(FALSE);
+            }
+            else PlayerSetBlock();
         break;
 
         case WM_DESTROY:
@@ -1916,9 +1924,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             switch (wParam)
             {
                 case VK_ESCAPE:
-                    SaveWorld();
-                    PostQuitMessage(0);
-                break;
+                {
+                    afk = TRUE;
+                    ShowCursor(TRUE);
+                }
             }
         }
         break;
