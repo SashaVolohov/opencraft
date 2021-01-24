@@ -57,69 +57,66 @@ void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
         int dcy = 16*chunky;
         float x = new_cx - dcx;
         float y = new_cy - dcy;
-        if(new_cx < 0 || new_cy < 0 || new_cx >= 256 || new_cy >= 256 || camera.z <= -1 || camera.z >= 256)
+        float ccx = (int)new_cx;
+        float ccy = (int)new_cy;
+        if(GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 6 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 8)
         {
-            camera.x = new_cx;
-            camera.y = new_cy;
-            if(new_cx <= 256.3 && new_cx >= 256 && camera.z < 45) camera.x = 256.3;
-            if(new_cy <= 256.3 && new_cy >= 256 && camera.z < 45) camera.y = 256.3;
-            if(new_cx >= -0.3 && new_cx < 0 && camera.z < 45) camera.x = -0.4;
-            if(new_cy >= -0.3 && new_cy < 0 && camera.z < 45) camera.y = -0.4;
-        }
-        else if(world[chunkx][chunky][(int)x][(int)y][(int)camera.z] == 0 || world[chunkx][chunky][(int)x][(int)y][(int)camera.z] == 6)
-        {
-            if(world[chunkx][chunky][(int)x][(int)y][(int)camera.z+1] == 0 || world[chunkx][chunky][(int)x][(int)y][(int)camera.z+1] == 6)
+            if(new_cx < camera.x && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 0)
             {
-                float ccx = (int)new_cx;
-                float ccy = (int)new_cy;
-                if(GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 6)
-                {
-                    if(new_cx < camera.x && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 0)
-                    {
-                        if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
-                    }
-                }
-                if(GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 6)
-                {
-                    if(new_cx > camera.x && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 0)
-                    {
-                        if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
-                    }
-                }
-                if(GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z) != 6)
-                {
-                    if(new_cy < camera.y && GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z) != 0)
-                    {
-                        if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
-                    }
-                }
-                if(GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z) != 6)
-                {
-                    if(new_cy > camera.y && GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z) != 0)
-                    {
-                        if(new_cy >= ccy + 0.3) new_cy = ccy + 0.3;
-                    }
-                }
-
-                if(new_cx < camera.x && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 0)
-                {
-                    if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
-                }
-                if(new_cx > camera.x && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 0)
-                {
-                    if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
-                }
-                if(new_cy < camera.y && GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z+1) != 0)
-                {
-                    if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
-                }
-                if(new_cy > camera.y && GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z+1) != 0)
-                {
-                    if(new_cy >= ccy + 0.3) new_cy = ccy + 0.3;
-                }
-                camera.x = new_cx;
-                camera.y = new_cy;
+                if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
             }
         }
+        if(GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 6 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 8)
+        {
+            if(new_cx > camera.x && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 0)
+            {
+                if(new_cx >= ccx - 0.3) new_cx = ccx + 0.7;
+            }
+        }
+        if(GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 6 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 7 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 8)
+        {
+            if(new_cy < camera.y && GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z) != 0)
+            {
+                if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+            }
+        }
+        if(GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 6 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 7 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 8)
+        {
+            if(new_cy > camera.y && GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z) != 0)
+            {
+                if(new_cy >= ccy + 0.3) new_cy = ccy + 0.7;
+            }
+        }
+
+        if(GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 6 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 8)
+        {
+            if(new_cx < camera.x && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 0)
+            {
+                if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+            }
+        }
+        if(GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 6 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 8)
+        {
+            if(new_cx > camera.x && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 0)
+            {
+                if(new_cx >= ccx - 0.3) new_cx = ccx + 0.7;
+            }
+        }
+        if(GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 6 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 7 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 8)
+        {
+            if(new_cy < camera.y && GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z+1) != 0)
+            {
+                if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+            }
+        }
+        if(GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 6 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 7 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 8)
+        {
+            if(new_cy > camera.y && GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z+1) != 0)
+            {
+                if(new_cy >= ccy + 0.3) new_cy = ccy + 0.7;
+            }
+        }
+        camera.x = new_cx;
+        camera.y = new_cy;
     }
 }

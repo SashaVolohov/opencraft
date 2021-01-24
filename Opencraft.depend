@@ -67,7 +67,7 @@
 	<intrin.h>
 	<arm_neon.h>
 
-1609698768 source:d:\Документы\Мои проекты\opencraft\src\camera.c
+1611486839 source:d:\Документы\Мои проекты\opencraft\src\camera.c
 	<GL/gl.h>
 	"camera.h"
 	<windows.h>
@@ -76,7 +76,7 @@
 1609678518 d:\Документы\Мои проекты\opencraft\src\camera.h
 	<windows.h>
 
-1609773810 source:d:\Документы\Мои проекты\opencraft\src\main.c
+1611486308 source:d:\Документы\Мои проекты\opencraft\src\main.c
 	"stb_image.h"
 	<windows.h>
 	<direct.h>
