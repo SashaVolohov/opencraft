@@ -11,7 +11,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.13a"
+#define OPENCRAFT_VERSION "0.0.13a_03"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -525,7 +525,11 @@ void GenerateWaterAndLava()
                 int coolrde = rand() % 100;
                 int blocks = 0;
                 if(coolrde <= 70) blocks = 8;
-                else blocks = 7;
+                else
+                {
+                    if(z <= 64) blocks = 7;
+                    else continue;
+                }
                 int xvr = rand() % 10;
                 int yvr = rand() % 10;
                 for(int xv = 0; xv < xvr; xv++)
@@ -640,7 +644,7 @@ void GenerateNewWorld()
             break;
         }
     }
-    for(int i = 0; i < 100; i++)
+    /*for(int i = 0; i < 100; i++)
     {
         int f = rand() % 255;
         int s = rand() % 255;
@@ -655,7 +659,7 @@ void GenerateNewWorld()
             }
         }
         Entities[i].entity_id = 1;
-    }
+    }*/
     for(int chunky = 0; chunky < 16; chunky++)
     {
         for(int chunkx = 0; chunkx < 16; chunkx++)
@@ -801,7 +805,7 @@ void Game_Init()
     }
     else GenerateNewWorld();
 
-    for(int i = 0; i < 100; i++)
+    /*for(int i = 0; i < 100; i++)
     {
         int f = rand() % 255;
         int s = rand() % 255;
@@ -816,7 +820,7 @@ void Game_Init()
             }
         }
         Entities[i].entity_id = 1;
-    }
+    }*/
     for(int chunky = 0; chunky < 16; chunky++)
     {
         for(int chunkx = 0; chunkx < 16; chunkx++)
@@ -2128,6 +2132,7 @@ void Menu_Show()
     glLoadIdentity();
 
     glDisable(GL_LIGHTING);
+    glDisable(GL_LIGHT0);
     glDisable(GL_DEPTH_TEST);
 
     int curx = scrSize.x / 2 - 16;
@@ -2221,8 +2226,12 @@ void Menu_Show()
 
         int scrX = (scrSize.x / 2) - (405 / 2);
         int scrY = (scrSize.y / 2) - 120;
+        glPushMatrix();
+            glTranslatef((scrSize.x / 2) - 45, scrY - 80, 0);
+            Text_Out("Меню игры");
+        glPopMatrix();
         ShowButton("Создать новый мир", sizeof("Создать новый мир") - 1, scrX, scrY, 0);
-        ShowButton("Загрузить мир", sizeof("Загрузить ми") - 1, scrX, scrY+65, 1);
+        ShowButton("Загрузить мир", sizeof("Загрузить мир") - 1, scrX, scrY+65, 1);
         ShowButton("Сохранить мир", sizeof("Сохранить мир") - 1, scrX, scrY+130, 2);
         ShowButton("Вернуться к игре", sizeof("Вернуться к игре") - 1, scrX, scrY+195, 3);
 
@@ -2233,6 +2242,7 @@ void Menu_Show()
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
     glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
     glEnable(GL_DEPTH_TEST);
 }
 
@@ -2843,9 +2853,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 case VK_ESCAPE:
                 {
-                    afk = TRUE;
-                    cursorShow = TRUE;
-                    while (ShowCursor(TRUE) <= 0);
+                    if(afk == FALSE)
+                    {
+                        afk = TRUE;
+                        cursorShow = TRUE;
+                        while (ShowCursor(TRUE) <= 0);
+                    }
+                    else
+                    {
+                        afk = FALSE;
+                        cursorShow = FALSE;
+                        while (ShowCursor(FALSE) >= 0);
+                    }
                 }
             }
         }
