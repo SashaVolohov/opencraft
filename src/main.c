@@ -11,7 +11,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.12a"
+#define OPENCRAFT_VERSION "0.0.13a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -234,6 +234,7 @@ BOOL afk = FALSE;
 BOOL place_blocks = FALSE;
 
 RECT rcta;
+RECT rctb;
 
 HDC hDC;
 
@@ -265,6 +266,8 @@ SButtons Buttons[3];
 BOOL cursorShow = FALSE;
 
 BOOL map_changed = FALSE;
+
+BOOL space = FALSE;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -840,7 +843,7 @@ void Player_Move()
     else Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
         ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
         ,0.12);
-    if(afk == FALSE) Camera_AutoMoveByMouse(scrSize.x/2, scrSize.y/2, 0.2);
+    if(afk == FALSE) Camera_AutoMoveByMouse((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2, 0.2);
 }
 
 void Game_Show()
@@ -1305,6 +1308,74 @@ void Game_Show()
                 }
             }
         }
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_LIGHTING);
+        if(camera.x < 0 || camera.x >= 256 || camera.y < 0 || camera.y >= 256 || camera.z < 0 || camera.z >= 256) return FALSE;
+        double bx, by, bz;
+        int x, y, z;
+        /*glPushMatrix();
+            ClientToOpenGL(scrSize.x/2, scrSize.y/2, &bx, &by, &bz);
+            chunkx = bx / 16;
+            chunky = by / 16;
+            int dcx = 16 * chunkx;
+            int dcy = 16 * chunky;
+            x = bx - dcx;
+            y = by - dcy;
+            z = bz;
+
+            printf("%f, %f, %f\n", bx, by, bz);
+
+        //if(GetBlockID(x+dcx, y+dcy, z) != 0 && GetBlockID(x+dcx, y+dcy, z) != 1)
+        //{
+            glVertexPointer(3, GL_FLOAT, 0, block);
+            glNormalPointer(GL_FLOAT, 0, normal);
+            glNormal3f(0,0,1);
+            glColor3f(0.7, 0.7, 0.7);
+            glBindTexture(GL_TEXTURE_2D, bedrock_texture);
+            glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
+            glPushMatrix();
+                glTranslatef(x+dcx, y+dcy, z);
+                if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8)
+                {
+                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+                }
+
+                if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8)
+                {
+                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+                }
+
+                if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8)
+                {
+                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+                }
+
+                if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8)
+                {
+                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+                }
+
+                if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8)
+                {
+                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+                }
+
+                if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8)
+                {
+                    glTranslatef(0.0, 0.0, -1);
+                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
+                    glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+                }
+            glPopMatrix();
+        //}
+
+        glPopMatrix();*/
+
         for(int j = 0; j < 500; j++)
         {
             if(camera.x + 9 < Entities[j].x || camera.x - 9 > Entities[j].x || camera.y + 9 < Entities[j].y || camera.y - 9 > Entities[j].y || camera.z + 9 < Entities[j].z || camera.z - 9 > Entities[j].z) continue;
@@ -2410,9 +2481,9 @@ int WINAPI WinMain(HINSTANCE hInstance,
                           "Opencraft",
                           title,
                           WS_OVERLAPPEDWINDOW,
-                          CW_USEDEFAULT,
-                          CW_USEDEFAULT,
-                          640,
+                          Horres / 2 - 854 / 2,
+                          Vertres / 2 - 480 / 2,
+                          854,
                           480,
                           NULL,
                           NULL,
@@ -2606,12 +2677,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     }
                     if(chunkx <= 15 && chunky <= 15 && chunkx >= 0 && chunky >= 0 && afk == FALSE)
                     {
-                        if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < 256 && camera.y > 0 && camera.y < 256 && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0)
+                        if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < 256 && camera.y > 0 && camera.y < 256 && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
                         {
                             if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
                             {
                                 is_jumping = TRUE;
                                 camera_z_in_jump = camera.z;
+                                space = TRUE;
                             }
                         }
                     }
@@ -2697,6 +2769,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                 timer_del_chunks--;
             }
         }
+        if(GetKeyState(' ') > 0) space = FALSE;
     }
 
     /* shutdown OpenGL */
@@ -2727,6 +2800,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 if(place_blocks == FALSE) place_blocks = TRUE;
                 else place_blocks = FALSE;
             }
+        break;
+
+        case WM_MOVE:
+            GetWindowRect(hwnd, &rctb);
         break;
 
         case WM_LBUTTONDOWN:

@@ -6,6 +6,9 @@
 
 BOOL inverted_y = FALSE;
 
+RECT rcta;
+RECT rctb;
+
 struct SCamera camera = {128.5,128.5,65,0,0};
 
 void Camera_Apply()
