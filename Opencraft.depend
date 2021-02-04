@@ -67,17 +67,18 @@
 	<intrin.h>
 	<arm_neon.h>
 
-1611934597 source:d:\Документы\Мои проекты\opencraft\src\camera.c
+1612192657 source:d:\Документы\Мои проекты\opencraft\src\camera.c
 	<GL/gl.h>
 	"camera.h"
 	<windows.h>
 	<math.h>
 
-1611502697 d:\Документы\Мои проекты\opencraft\src\camera.h
+1612287486 d:\Документы\Мои проекты\opencraft\src\camera.h
 	<windows.h>
 
-1611934724 source:d:\Документы\Мои проекты\opencraft\src\main.c
+1612366460 source:d:\Документы\Мои проекты\opencraft\src\main.c
 	"stb_image.h"
+	"blocks.h"
 	<windows.h>
 	<direct.h>
 	<gl/glu.h>
@@ -87,7 +88,7 @@
 	<time.h>
 	"camera.h"
 
-1611502697 d:\Документы\Мои проекты\opencraft\src\stb_image.h
+1612192657 d:\Документы\Мои проекты\opencraft\src\stb_image.h
 	"stb_image.h"
 	<stdio.h>
 	<stdlib.h>
@@ -106,4 +107,62 @@
 
 1609678527 d:\Документы\Мои проекты\opencraft\src\main.h
 	<windows.h>
+
+1612197476 source:d:\Документы\Мои проекты\opencraft\src\blocks.c
+	"blocks.h"
+
+1612197144 d:\Документы\Мои проекты\opencraft\src\blocks.h
+
+1612197476 source:d:\Документы\Мои проекты\opencraft\src\opencraft\blocks.c
+	"blocks.h"
+
+1612197144 d:\Документы\Мои проекты\opencraft\src\opencraft\blocks.h
+
+1612192657 source:d:\Документы\Мои проекты\opencraft\src\opencraft\camera.c
+	<GL/gl.h>
+	"camera.h"
+	<windows.h>
+	<math.h>
+
+1612287486 d:\Документы\Мои проекты\opencraft\src\opencraft\camera.h
+	<windows.h>
+
+1612455455 source:d:\Документы\Мои проекты\opencraft\src\opencraft\main.c
+	"../libs/stb_image/stb_image.h"
+	"../libs/zlib/zlib.h"
+	"blocks.h"
+	<windows.h>
+	<direct.h>
+	<gl/glu.h>
+	<io.h>
+	<sys/types.h>
+	<sys/stat.h>
+	<time.h>
+	"camera.h"
+
+1612192657 d:\Документы\Мои проекты\opencraft\src\libs\stb_image\stb_image.h
+	"stb_image.h"
+	<stdio.h>
+	<stdlib.h>
+	<stdarg.h>
+	<stddef.h>
+	<stdlib.h>
+	<string.h>
+	<limits.h>
+	<math.h>
+	<stdio.h>
+	<assert.h>
+	<stdint.h>
+	<emmintrin.h>
+	<intrin.h>
+	<arm_neon.h>
+
+1121653608 d:\Документы\Мои проекты\opencraft\src\libs\zlib\zlib.h
+	"zconf.h"
+
+1121874026 d:\Документы\Мои проекты\opencraft\src\libs\zlib\zconf.h
+	<windows.h>
+	<sys/types.h>
+	<unistd.h>
+	<unixio.h>
 

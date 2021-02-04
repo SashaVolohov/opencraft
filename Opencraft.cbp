@@ -30,20 +30,26 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
+			<Add directory="src/libs/zlib" />
 		</Compiler>
 		<Linker>
 			<Add library="opengl32" />
 			<Add library="glu32" />
 			<Add library="gdi32" />
+			<Add library="lib/libz.a" />
 		</Linker>
-		<Unit filename="src/camera.c">
+		<Unit filename="src/libs/stb_image/stb_image.h" />
+		<Unit filename="src/opencraft/blocks.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/camera.h" />
-		<Unit filename="src/main.c">
+		<Unit filename="src/opencraft/blocks.h" />
+		<Unit filename="src/opencraft/camera.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/stb_image.h" />
+		<Unit filename="src/opencraft/camera.h" />
+		<Unit filename="src/opencraft/main.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Extensions>
 			<code_completion />
 			<envvars />

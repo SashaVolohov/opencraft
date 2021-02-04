@@ -3,7 +3,7 @@
 
 #include <windows.h>
 
-int world[16][16][16][16][256];
+int world[32][32][16][16][256];
 POINT scrSize;
 float scrKoef;
 
