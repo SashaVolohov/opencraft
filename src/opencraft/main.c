@@ -17,7 +17,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.14a"
+#define OPENCRAFT_VERSION "0.0.14a_04"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -54,6 +54,7 @@ int timer_y = 0;
 int timer_f = 0;
 int timer_n = 0;
 int timer_pl = 0;
+int timer_enter = 0;
 
 int select_inv = 1;
 
@@ -292,6 +293,10 @@ int cxtmp = 0;
 int cytmp = 0;
 int dcxtmp = 0;
 int dcytmp = 0;
+
+struct SSpawn {
+    float x, y, z, Xrot, Zrot;
+} spawn;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -777,6 +782,11 @@ void GenerateNewWorld()
             break;
         }
     }
+    spawn.x = camera.x;
+    spawn.y = camera.y;
+    spawn.z = camera.z;
+    spawn.Xrot = camera.Xrot;
+    spawn.Zrot = camera.Zrot;
     /*for(int i = 0; i < 100; i++)
     {
         int f = rand() % 255;
@@ -885,6 +895,7 @@ void Game_Init()
     if(DirectoryExists(path) && SAVE_GAME == TRUE)
     {
         FILE *level;
+        FILE *file_spawn;
         FILE *file_world;
         FILE *file_version;
         FILE *file_entity;
@@ -919,6 +930,20 @@ void Game_Init()
         {
             fread(&camera, 1, sizeof(camera), level);
             fclose(level);
+        }
+
+        GenMenu_Show("Загрузка spawn.dat...", sizeof("Загрузка spawn.dat..."), FALSE);
+
+        SwapBuffers(hDC);
+
+        sprintf(path, "%s\\saves\\world\\spawn.dat", buffer);
+
+        file_spawn = fopen(path, "r");
+
+        if(file_spawn != NULL)
+        {
+            fread(&spawn, 1, sizeof(spawn), file_spawn);
+            fclose(file_spawn);
         }
 
         GenMenu_Show("Загрузка world.ocw...", sizeof("Загрузка world.ocw..."), FALSE);
@@ -1811,6 +1836,7 @@ void SaveWorld()
     sprintf(path, "%s\\saves\\world", buffer);
     if(!DirectoryExists(path)) mkdir(path);
     FILE *level;
+    FILE *file_spawn;
     FILE *file_world;
     FILE *file_version;
     FILE *file_entity;
@@ -1826,6 +1852,17 @@ void SaveWorld()
 
     fwrite(&camera, 1, sizeof(camera), level);
     fclose(level);
+
+    sprintf(path, "%s\\saves\\world\\spawn.dat", buffer);
+
+    file_spawn = fopen(path, "w");
+
+    if(file_spawn == NULL) creat(path, S_IREAD|S_IWRITE);
+
+    file_spawn = fopen(path, "w");
+
+    fwrite(&spawn, 1, sizeof(spawn), file_spawn);
+    fclose(file_spawn);
 
 
     sprintf(path, "%s\\saves\\world\\world.ocw", buffer);
@@ -2760,26 +2797,11 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
                     if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE)
                     {
-                        BOOL success = FALSE;
-                        while(success == FALSE)
-                        {
-                            int x = rand();
-                            int y = rand();
-                            x %= 255;
-                            y %= 255;
-                            for(int i = 0; i < 256; i++)
-                            {
-                                if(GetBlockID(x, y, i) == 0 && GetBlockID(x, y, i+1) == 0)
-                                {
-                                    camera.x = x + 0.5;
-                                    camera.y = y + 0.5;
-                                    camera.z = i;
-                                    success = TRUE;
-                                    timer_r = 10;
-                                    break;
-                                }
-                            }
-                        }
+                        camera.x = spawn.x;
+                        camera.y = spawn.y;
+                        camera.z = spawn.z;
+                        camera.Xrot = spawn.Xrot;
+                        camera.Zrot = spawn.Zrot;
                     }
                     if(GetKeyState('G') < 0 && timer_g <= 0 && afk == FALSE)
                     {
@@ -2815,6 +2837,15 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         SaveWorld();
                         timer_n = 10;
                     }
+                    if(GetKeyState(VK_RETURN) < 0 && timer_enter <= 0 && afk == FALSE)
+                    {
+                        spawn.x = camera.x;
+                        spawn.y = camera.y;
+                        spawn.z = camera.z;
+                        spawn.Xrot = camera.Xrot;
+                        spawn.Zrot = camera.Zrot;
+                        timer_enter = 10;
+                    }
                     if(afk == FALSE) SpritesManage();
 
                     theta += 0,1080000108;
@@ -2826,6 +2857,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                 timer_f--;
                 timer_n--;
                 timer_pl--;
+                timer_enter--;
                 timer_del_chunks--;
             }
         }
