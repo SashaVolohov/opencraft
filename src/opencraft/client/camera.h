@@ -33,7 +33,7 @@ typedef struct {
     int step;
 } sprite;
 
-entity Entities[500];
+entity Entities[1500];
 sprite Sprites[100];
 
 void Camera_Apply();

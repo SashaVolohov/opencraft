@@ -2,8 +2,8 @@
 
 #define SAVE_GAME TRUE /* Если Вы пишите код, ставьте FALSE, чтобы экономить время сохранения и загрузки мира */
 
-#include "../libs/stb_image/stb_image.h"
-#include "../libs/zlib/zlib.h"
+#include "../../libs/stb_image/stb_image.h"
+#include "../../libs/zlib/zlib.h"
 
 #include "blocks.h"
 
@@ -14,10 +14,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <winsock2.h>
+#include <pthread.h>
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.14a_04"
+#define OPENCRAFT_VERSION "0.0.15a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -286,9 +288,6 @@ typedef struct {
     int id;
 } SWorld;
 
-SWorld *slworld = NULL;
-SWorld slwmemcheck[1];
-
 int cxtmp = 0;
 int cytmp = 0;
 int dcxtmp = 0;
@@ -297,6 +296,28 @@ int dcytmp = 0;
 struct SSpawn {
     float x, y, z, Xrot, Zrot;
 } spawn;
+
+struct SServer {
+    char ip[100];
+    int port;
+    char server_name[512];
+    char motd[512];
+} server;
+
+WSADATA ws;
+SOCKET s;
+
+BOOL on_server = FALSE;
+BOOL server_error = FALSE;
+
+char ser_error_text[512];
+
+BOOL bQuit = FALSE;
+
+BOOL sendGetWorld = FALSE;
+BOOL server_loaded = FALSE;
+
+float old_x, old_y, old_z, old_Xrot, old_Zrot;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -488,7 +509,7 @@ void GenerateNewChunk(int chunkx, int chunky)
 
 void GenerateCaves()
 {
-    GenMenu_Show("Генерация пещер...", sizeof("Генерация пещер..."), TRUE);
+    GenMenu_Show("Генерация пещер...", sizeof("Генерация пещер..."), 1);
     SwapBuffers(hDC);
     int g3 = 0;
     for(int y = 0; y < worldsizey; y++)
@@ -533,7 +554,7 @@ void GenerateCaves()
 
 void GenerateWaterAndLava()
 {
-    GenMenu_Show("Генерация воды и лавы...", sizeof("Генерация воды и лавы..."), TRUE);
+    GenMenu_Show("Генерация воды и лавы...", sizeof("Генерация воды и лавы..."), 1);
     SwapBuffers(hDC);
     int z = 0;
     for(int y = 0; y < worldsizey; y++)
@@ -608,7 +629,7 @@ void GenerateWaterAndLava()
 
 void GenerateAdditionalProcessing()
 {
-    GenMenu_Show("Дополнительная обработка...", sizeof("Дополнительная обработка..."), TRUE);
+    GenMenu_Show("Дополнительная обработка...", sizeof("Дополнительная обработка..."), 1);
     SwapBuffers(hDC);
     for(int z = 0; z < 256; z++)
     {
@@ -653,7 +674,7 @@ void GenerateAdditionalProcessing()
 
 void GenerateTrees()
 {
-    GenMenu_Show("Генерация деревьев...", sizeof("Генерация деревьев..."), TRUE);
+    GenMenu_Show("Генерация деревьев...", sizeof("Генерация деревьев..."), 1);
     SwapBuffers(hDC);
     for(int y = 0; y < worldsizey; y++)
     {
@@ -709,7 +730,7 @@ void GenerateTrees()
 
 void GenerateOres()
 {
-    GenMenu_Show("Генерация руд...", sizeof("Генерация руд..."), TRUE);
+    GenMenu_Show("Генерация руд...", sizeof("Генерация руд..."), 1);
     SwapBuffers(hDC);
     for(int z = 0; z < 256; z++)
     {
@@ -756,7 +777,7 @@ void GenerateOres()
 
 void GenerateNewWorld()
 {
-    GenMenu_Show("Генерация ландшафта...", sizeof("Генерация ландшафта..."), TRUE);
+    GenMenu_Show("Генерация ландшафта...", sizeof("Генерация ландшафта..."), 1);
     SwapBuffers(hDC);
     int y_need = worldsizey / 16 - 1;
     int x_need = worldsizex / 16 - 1;
@@ -888,162 +909,199 @@ void Game_Init()
 
     srand(time(NULL));
 
-    TCHAR buffer[MAX_PATH];
-    GetCurrentDirectory(sizeof(buffer), buffer);
-    char path[MAX_PATH];
-    sprintf(path, "%s\\saves\\world", buffer);
-    if(DirectoryExists(path) && SAVE_GAME == TRUE)
+    if(on_server == FALSE)
     {
-        FILE *level;
-        FILE *file_spawn;
-        FILE *file_world;
-        FILE *file_version;
-        FILE *file_entity;
-        FILE *file_borders;
-
-        GenMenu_Show("Загрузка border.dat...", sizeof("Загрузка border.dat..."), FALSE);
-
-        SwapBuffers(hDC);
-
-        sprintf(path, "%s\\saves\\world\\border.dat", buffer);
-
-        file_borders = fopen(path, "r");
-
-        if(file_borders == NULL) creat(path, S_IREAD|S_IWRITE);
-
-        file_borders = fopen(path, "r");
-
-        fread(&worldsizex, 1, sizeof(worldsizex), file_borders);
-        fclose(file_borders);
-
-        worldsizey = worldsizex;
-
-        GenMenu_Show("Загрузка level.dat...", sizeof("Загрузка level.dat..."), FALSE);
-
-        SwapBuffers(hDC);
-
-        sprintf(path, "%s\\saves\\world\\level.dat", buffer);
-
-        level = fopen(path, "r");
-
-        if(level != NULL)
+        TCHAR buffer[MAX_PATH];
+        GetCurrentDirectory(sizeof(buffer), buffer);
+        char path[MAX_PATH];
+        sprintf(path, "%s\\saves\\world", buffer);
+        if(DirectoryExists(path) && SAVE_GAME == TRUE)
         {
-            fread(&camera, 1, sizeof(camera), level);
-            fclose(level);
-        }
+            FILE *level;
+            FILE *file_spawn;
+            FILE *file_world;
+            FILE *file_version;
+            FILE *file_entity;
+            FILE *file_borders;
 
-        GenMenu_Show("Загрузка spawn.dat...", sizeof("Загрузка spawn.dat..."), FALSE);
+            GenMenu_Show("Загрузка border.dat...", sizeof("Загрузка border.dat..."), 0);
 
-        SwapBuffers(hDC);
+            SwapBuffers(hDC);
 
-        sprintf(path, "%s\\saves\\world\\spawn.dat", buffer);
+            sprintf(path, "%s\\saves\\world\\border.dat", buffer);
 
-        file_spawn = fopen(path, "r");
+            file_borders = fopen(path, "r");
 
-        if(file_spawn != NULL)
-        {
-            fread(&spawn, 1, sizeof(spawn), file_spawn);
-            fclose(file_spawn);
-        }
+            if(file_borders == NULL) creat(path, S_IREAD|S_IWRITE);
 
-        GenMenu_Show("Загрузка world.ocw...", sizeof("Загрузка world.ocw..."), FALSE);
+            file_borders = fopen(path, "r");
 
-        SwapBuffers(hDC);
+            fread(&worldsizex, 1, sizeof(worldsizex), file_borders);
+            fclose(file_borders);
 
-        sprintf(path, "%s\\saves\\world\\world.ocw", buffer);
+            worldsizey = worldsizex;
 
-        file_world = fopen(path, "r");
+            GenMenu_Show("Загрузка level.dat...", sizeof("Загрузка level.dat..."), 0);
 
-        if(file_world != NULL)
-        {
-            fread(world, 1, sizeof(world), file_world);
-            fclose(file_world);
-        }
+            SwapBuffers(hDC);
 
-        char version[50];
+            sprintf(path, "%s\\saves\\world\\level.dat", buffer);
 
-        GenMenu_Show("Загрузка version.dat...", sizeof("Загрузка version.dat..."), FALSE);
+            level = fopen(path, "r");
 
-        SwapBuffers(hDC);
-
-        sprintf(path, "%s\\saves\\world\\version.dat", buffer);
-
-        file_version = fopen(path, "r");
-
-        if(file_version != NULL)
-        {
-            fread(version, 1, sizeof(version), file_version);
-            fclose(file_version);
-        }
-        else
-        {
-            for(int chunkx = 0; chunkx < 32; chunkx++)
+            if(level != NULL)
             {
-                for(int chunky = 0; chunky < 32; chunky++)
+                fread(&camera, 1, sizeof(camera), level);
+                fclose(level);
+            }
+
+            GenMenu_Show("Загрузка spawn.dat...", sizeof("Загрузка spawn.dat..."), 0);
+
+            SwapBuffers(hDC);
+
+            sprintf(path, "%s\\saves\\world\\spawn.dat", buffer);
+
+            file_spawn = fopen(path, "r");
+
+            if(file_spawn != NULL)
+            {
+                fread(&spawn, 1, sizeof(spawn), file_spawn);
+                fclose(file_spawn);
+            }
+
+            GenMenu_Show("Загрузка world.ocw...", sizeof("Загрузка world.ocw..."), 0);
+
+            SwapBuffers(hDC);
+
+            sprintf(path, "%s\\saves\\world\\world.ocw", buffer);
+
+            file_world = fopen(path, "r");
+
+            if(file_world != NULL)
+            {
+                fread(world, 1, sizeof(world), file_world);
+                fclose(file_world);
+            }
+
+            char version[50];
+
+            GenMenu_Show("Загрузка version.dat...", sizeof("Загрузка version.dat..."), 0);
+
+            SwapBuffers(hDC);
+
+            sprintf(path, "%s\\saves\\world\\version.dat", buffer);
+
+            file_version = fopen(path, "r");
+
+            if(file_version != NULL)
+            {
+                fread(version, 1, sizeof(version), file_version);
+                fclose(file_version);
+            }
+            else
+            {
+                for(int chunkx = 0; chunkx < 32; chunkx++)
                 {
-                    for(int z = 0; z < 256; z++)
+                    for(int chunky = 0; chunky < 32; chunky++)
                     {
-                        for(int y = 0; y < 16; y++)
+                        for(int z = 0; z < 256; z++)
                         {
-                            for(int x = 0; x < 16; x++)
+                            for(int y = 0; y < 16; y++)
                             {
-                                if(world[chunkx][chunky][x][y][z] != 0) world[chunkx][chunky][x][y][z] = 5;
+                                for(int x = 0; x < 16; x++)
+                                {
+                                    if(world[chunkx][chunky][x][y][z] != 0) world[chunkx][chunky][x][y][z] = 5;
+                                }
                             }
                         }
                     }
                 }
             }
+
+            GenMenu_Show("Загрузка entity.dat...", sizeof("Загрузка entity.dat..."), 0);
+
+            SwapBuffers(hDC);
+
+            sprintf(path, "%s\\saves\\world\\entity.dat", buffer);
+
+            file_entity = fopen(path, "rb");
+
+            if(file_entity != NULL)
+            {
+                fread(Entities, sizeof(Entities[0]), 500, file_entity);
+                fclose(file_entity);
+            }
+
         }
-
-        GenMenu_Show("Загрузка entity.dat...", sizeof("Загрузка entity.dat..."), FALSE);
-
-        SwapBuffers(hDC);
-
-        sprintf(path, "%s\\saves\\world\\entity.dat", buffer);
-
-        file_entity = fopen(path, "rb");
-
-        if(file_entity != NULL)
+        else
         {
-            fread(Entities, sizeof(Entities[0]), 500, file_entity);
-            fclose(file_entity);
+            worldsizex = 512;
+            worldsizey = 512;
+            GenerateNewWorld();
         }
 
+        /*for(int i = 0; i < 100; i++)
+        {
+            int f = rand() % 255;
+            int s = rand() % 255;
+            Entities[i].x = (float)f;
+            Entities[i].y = (float)s;
+            for(int zx = 255; zx >= 0; zx--)
+            {
+                if(GetBlockID((int)Entities[i].x, (int)Entities[i].y, zx) != 0)
+                {
+                    Entities[i].z = zx+1;
+                    break;
+                }
+            }
+            Entities[i].entity_id = 1;
+        }*/
+        int cx = worldsizex / 16;
+        int cy = worldsizey / 16;
+        for(int chunky = 0; chunky < cy; chunky++)
+        {
+            for(int chunkx = 0; chunkx < cx; chunkx++)
+            {
+               UpdateChunk(chunkx, chunky);
+            }
+        }
     }
     else
     {
-        worldsizex = 512;
-        worldsizey = 512;
-        GenerateNewWorld();
-    }
-
-    /*for(int i = 0; i < 100; i++)
-    {
-        int f = rand() % 255;
-        int s = rand() % 255;
-        Entities[i].x = (float)f;
-        Entities[i].y = (float)s;
-        for(int zx = 255; zx >= 0; zx--)
+        int actual_len;
+        char buff[512];
+        sprintf(buff, "ops get_server_name");
+        if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
         {
-            if(GetBlockID((int)Entities[i].x, (int)Entities[i].y, zx) != 0)
-            {
-                Entities[i].z = zx+1;
-                break;
-            }
+            server_error = TRUE;
+            sprintf(ser_error_text, "Не удалось выполнить вход");
         }
-        Entities[i].entity_id = 1;
-    }*/
-    int cx = worldsizex / 16;
-    int cy = worldsizey / 16;
-    for(int chunky = 0; chunky < cy; chunky++)
-    {
-        for(int chunkx = 0; chunkx < cx; chunkx++)
+        for(int iw = 0; iw < 512; iw++)
         {
-           UpdateChunk(chunkx, chunky);
+            buff[iw] = 0;
+        }
+        sprintf(buff, "ops get_motd");
+        if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+        {
+            server_error = TRUE;
+            sprintf(ser_error_text, "Не удалось выполнить вход");
+        }
+        for(int iw = 0; iw < 512; iw++)
+        {
+            buff[iw] = 0;
+        }
+        sprintf(buff, "ops get_worldsize");
+        if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+        {
+            server_error = TRUE;
+            sprintf(ser_error_text, "Не удалось выполнить вход");
         }
     }
-    cursorShow = FALSE;
-    while (ShowCursor(FALSE) >= 0);
+    if(on_server == FALSE)
+    {
+        cursorShow = FALSE;
+        while (ShowCursor(FALSE) >= 0);
+    }
 }
 void WndResize(int x, int y)
 {
@@ -1162,7 +1220,7 @@ void Game_Show()
                                 if(camera.Xrot <= 50 && camera.z + 9*2 < z) continue;
                                 if(camera.Xrot >= 110 && camera.z - 3 > z) continue;
                             }
-                            if(!world_visible[chunkx][chunky][x][y][z]) continue;
+                            //if(!world_visible[chunkx][chunky][x][y][z] && on_server == FALSE) continue;
                             if(blocks[world[chunkx][chunky][x][y][z]].type == 1)
                             {
                                 glVertexPointer(3, GL_FLOAT, 0, block);
@@ -1350,35 +1408,37 @@ void Game_Show()
                                     }
                                 glPopMatrix();
                             }
-                            int randome = rand();
-                            randome %= 500;
-                            if(randome == 1 && afk == FALSE)
+                            if(on_server == FALSE)
                             {
-                                if(world[chunkx][chunky][x][y][z] == 3)
+                                int randome = rand();
+                                randome %= 500;
+                                if(randome == 1 && afk == FALSE)
                                 {
-                                    for(int zz = z+1; zz < 256; zz++)
+                                    if(world[chunkx][chunky][x][y][z] == 3)
                                     {
-                                        if(world[chunkx][chunky][x][y][zz] != 0 && world[chunkx][chunky][x][y][z+1] != 6) break;
-                                        if(zz == 255)
+                                        for(int zz = z+1; zz < 256; zz++)
                                         {
-                                            if(GetBlockID(x+dcx+1, y+dcy, z) == 2 || GetBlockID(x+dcx-1, y+dcy, z) == 2 || GetBlockID(x+dcx, y+dcy+1, z) == 2 || GetBlockID(x+dcx, y+dcy-1, z) == 2 || GetBlockID(x+dcx+1, y+dcy, z+1) == 2 || GetBlockID(x+dcx-1, y+dcy, z+1) == 2 || GetBlockID(x+dcx, y+dcy+1, z+1) == 2 || GetBlockID(x+dcx, y+dcy-1, z+1) == 2 || GetBlockID(x+dcx+1, y+dcy, z-1) == 2 || GetBlockID(x+dcx-1, y+dcy, z-1) == 2 || GetBlockID(x+dcx, y+dcy+1, z-1) == 2 || GetBlockID(x+dcx, y+dcy-1, z-1) == 2 && z >= 64)
+                                            if(world[chunkx][chunky][x][y][zz] != 0 && world[chunkx][chunky][x][y][z+1] != 6) break;
+                                            if(zz == 255)
                                             {
-                                                world[chunkx][chunky][x][y][z] = 2;
-                                                map_changed = TRUE;
+                                                if(GetBlockID(x+dcx+1, y+dcy, z) == 2 || GetBlockID(x+dcx-1, y+dcy, z) == 2 || GetBlockID(x+dcx, y+dcy+1, z) == 2 || GetBlockID(x+dcx, y+dcy-1, z) == 2 || GetBlockID(x+dcx+1, y+dcy, z+1) == 2 || GetBlockID(x+dcx-1, y+dcy, z+1) == 2 || GetBlockID(x+dcx, y+dcy+1, z+1) == 2 || GetBlockID(x+dcx, y+dcy-1, z+1) == 2 || GetBlockID(x+dcx+1, y+dcy, z-1) == 2 || GetBlockID(x+dcx-1, y+dcy, z-1) == 2 || GetBlockID(x+dcx, y+dcy+1, z-1) == 2 || GetBlockID(x+dcx, y+dcy-1, z-1) == 2 && z >= 64)
+                                                {
+                                                    world[chunkx][chunky][x][y][z] = 2;
+                                                    map_changed = TRUE;
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                if(world[chunkx][chunky][x][y][z] == 2)
-                                {
-                                    if(world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z+1] != 6)
+                                    if(world[chunkx][chunky][x][y][z] == 2)
                                     {
-                                        world[chunkx][chunky][x][y][z] = 3;
-                                        map_changed = TRUE;
+                                        if(world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z+1] != 6)
+                                        {
+                                            world[chunkx][chunky][x][y][z] = 3;
+                                            map_changed = TRUE;
+                                        }
                                     }
                                 }
                             }
-                            if(world[chunkx][chunky][x][y][z] != 0) dcnt++;
                         }
                     }
                 }
@@ -1387,7 +1447,7 @@ void Game_Show()
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_LIGHTING);
 
-        for(int j = 0; j < 500; j++)
+        for(int j = 0; j < 1500; j++)
         {
             if(camera.x + 9 < Entities[j].x || camera.x - 9 > Entities[j].x || camera.y + 9 < Entities[j].y || camera.y - 9 > Entities[j].y || camera.z + 9 < Entities[j].z || camera.z - 9 > Entities[j].z) continue;
             if(Entities[j].entity_id == 1)
@@ -1399,7 +1459,6 @@ void Game_Show()
                 glColor3f(0.7, 0.7, 0.7);
                 glPushMatrix();
                     glTranslatef(Entities[j].x, Entities[j].y, Entities[j].z);
-                    glRotatef(Entities[j].Xrot, 1,0,0);
                     glRotatef(Entities[j].Zrot, 0,0,1);
                     glTranslatef(0, Entities[j].leg_left_c, Entities[j].leg_left_z);
                     glRotatef(Entities[j].leg_left, 1,0,0);
@@ -1750,11 +1809,28 @@ int PlayerSetBlock()
                     }
                     world[chunkx][chunky][X][Y][Z] = 0;
                     map_changed = TRUE;
-                    UpdateChunk(chunkx, chunky);
-                    if(X == 0) UpdateChunk(chunkx-1, chunky);
-                    if(X == 15) UpdateChunk(chunkx+1, chunky);
-                    if(Y == 0) UpdateChunk(chunkx, chunky-1);
-                    if(Y == 15) UpdateChunk(chunkx, chunky+1);
+                    if(on_server == FALSE)
+                    {
+                        UpdateChunk(chunkx, chunky);
+                        if(X == 0) UpdateChunk(chunkx-1, chunky);
+                        if(X == 15) UpdateChunk(chunkx+1, chunky);
+                        if(Y == 0) UpdateChunk(chunkx, chunky-1);
+                        if(Y == 15) UpdateChunk(chunkx, chunky+1);
+                    }
+                    else
+                    {
+                        char buff[512];
+                        for(int iw = 0; iw < 512; iw++)
+                        {
+                            buff[iw] = 0;
+                        }
+                        sprintf(buff, "ops set_block %d %d %d 0", X+dcx, Y+dcy, Z);
+                        if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+                        {
+                            server_error = TRUE;
+                            sprintf(ser_error_text, "Неизвестная ошибка");
+                        }
+                    }
                }
             }
             else
@@ -1779,11 +1855,28 @@ int PlayerSetBlock()
                     if(select_inv == 4) world[chunkx][chunky][X][Y][Z] = 4;
                     if(select_inv == 6) world[chunkx][chunky][X][Y][Z] = 6;
                     map_changed = TRUE;
-                    UpdateChunk(chunkx, chunky);
-                    if(X == 0) UpdateChunk(chunkx-1, chunky);
-                    if(X == 15) UpdateChunk(chunkx+1, chunky);
-                    if(Y == 0) UpdateChunk(chunkx, chunky-1);
-                    if(Y == 15) UpdateChunk(chunkx, chunky+1);
+                    if(on_server == FALSE)
+                    {
+                        UpdateChunk(chunkx, chunky);
+                        if(X == 0) UpdateChunk(chunkx-1, chunky);
+                        if(X == 15) UpdateChunk(chunkx+1, chunky);
+                        if(Y == 0) UpdateChunk(chunkx, chunky-1);
+                        if(Y == 15) UpdateChunk(chunkx, chunky+1);
+                    }
+                    else
+                    {
+                        char buff[512];
+                        for(int iw = 0; iw < 512; iw++)
+                        {
+                            buff[iw] = 0;
+                        }
+                        sprintf(buff, "ops set_block %d %d %d %d", X+dcx, Y+dcy, Z, world[chunkx][chunky][X][Y][Z]);
+                        if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+                        {
+                            server_error = TRUE;
+                            sprintf(ser_error_text, "Неизвестная ошибка");
+                        }
+                    }
                 }
             }
         }
@@ -1871,14 +1964,10 @@ void SaveWorld()
 
     if(file_world == NULL) creat(path, S_IREAD|S_IWRITE);
 
-    level = fopen(path, "w");
+    file_world = fopen(path, "w");
 
     fwrite(world, sizeof(world), 1, file_world);
     fclose(file_world);
-
-
-    free(slworld);
-    slworld = NULL;
 
 
     sprintf(path, "%s\\saves\\world\\version.dat", buffer);
@@ -1922,28 +2011,158 @@ void SaveWorld()
 
 void EntityAI(int j)
 {
-    int random = rand();
-    random %= 200;
-    if(random == 1 && Entities[j].Zrotplus == 0)
+    if(Entities[j].entity_id == 0) return 0;
+    if(j < 500)
     {
-        int z = rand();
-        z %= 360;
-        float x = z;
-        Entities[j].Zrotplus = x;
-    }
+        int random = rand();
+        random %= 200;
+        if(random == 1 && Entities[j].Zrotplus == 0)
+        {
+            int z = rand();
+            z %= 360;
+            float x = z;
+            Entities[j].Zrotplus = x;
+        }
 
-    int random2 = rand();
-    random2 %= 200;
-    if(random2 == 1 && Entities[j].is_jumping == 0)
-    {
-        Entities[j].is_jumping = 1;
-        Entities[j].z_in_jump = Entities[j].z;
-    }
-    if(Entities[j].Zrotplus != 0)
-    {
-        if(Entities[j].Zrotplus > Entities[j].Zrot) Entities[j].Zrot++;
-        if(Entities[j].Zrotplus < Entities[j].Zrot) Entities[j].Zrot--;
-        if(Entities[j].Zrotplus == Entities[j].Zrot) Entities[j].Zrotplus = 0;
+        int random2 = rand();
+        random2 %= 200;
+        if(random2 == 1 && Entities[j].is_jumping == 0)
+        {
+            Entities[j].is_jumping = 1;
+            Entities[j].z_in_jump = Entities[j].z;
+        }
+        if(Entities[j].Zrotplus != 0)
+        {
+            if(Entities[j].Zrotplus > Entities[j].Zrot) Entities[j].Zrot++;
+            if(Entities[j].Zrotplus < Entities[j].Zrot) Entities[j].Zrot--;
+            if(Entities[j].Zrotplus == Entities[j].Zrot) Entities[j].Zrotplus = 0;
+        }
+        float ugol = -Entities[j].Zrot / 180 * M_PI;
+
+        ugol += 0 > 0 ? M_PI_4 : (0 < 0 ? -M_PI_4 : 0);
+        float new_cx = Entities[j].x + (sin(ugol) * 0.05);
+        float new_cy = Entities[j].y + (cos(ugol) * 0.05);
+        int chunkx = new_cx / 16;
+        int chunky = new_cy / 16;
+        int dcx = 16*chunkx;
+        int dcy = 16*chunky;
+        float x = new_cx - dcx;
+        float y = new_cy - dcy;
+        if(new_cx < 0 || new_cy < 0 || new_cx >= worldsizex || new_cy >= worldsizey || Entities[j].z <= -1 || Entities[j].z >= 256)
+        {
+            Entities[j].x = new_cx;
+            Entities[j].y = new_cy;
+            float wsx = worldsizex + 0.3;
+            float wsy = worldsizey + 0.3;
+            if(new_cx <= wsx && new_cx >= worldsizex && Entities[j].z < 45) Entities[j].x = wsx;
+            if(new_cy <= wsy && new_cy >= worldsizey && Entities[j].z < 45) Entities[j].y = wsy;
+            if(new_cx >= -0.3 && new_cx < 0 && Entities[j].z < 45) Entities[j].x = -0.4;
+            if(new_cy >= -0.3 && new_cy < 0 && Entities[j].z < 45) Entities[j].y = -0.4;
+        }
+        else if(world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 0 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 6 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 7 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 8)
+        {
+            if(world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 0 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 6 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 7 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 8)
+            {
+                float ccx = (int)new_cx;
+                float ccy = (int)new_cy;
+                if(GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 6 && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 8)
+                {
+                    if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 0)
+                    {
+                        if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+                    }
+                }
+                if(GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 6 && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 8)
+                {
+                    if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 0)
+                    {
+                        if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
+                    }
+                }
+                if(GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 6 && GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 7 && GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 8)
+                {
+                    if(new_cy < Entities[j].y && GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 0)
+                    {
+                        if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+                    }
+                }
+                if(GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 6 && GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 7 && GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 8)
+                {
+                    if(new_cy > Entities[j].y && GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 0)
+                    {
+                        if(new_cy >= ccy + 0.3) new_cy = ccy + 0.3;
+                    }
+                }
+
+                if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 0 && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 8)
+                {
+                    if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
+                }
+                if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 0 && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 8)
+                {
+                    if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
+                }
+                if(new_cy < Entities[j].y && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 0 && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 7 && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 8)
+                {
+                    if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
+                }
+                if(new_cy > Entities[j].y && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 0 && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 7 && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 8)
+                {
+                    if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
+                }
+                Entities[j].x = new_cx;
+                Entities[j].y = new_cy;
+            }
+        }
+        if(Entities[j].x <= -0.3 || Entities[j].y <= -0.3 || Entities[j].x >= worldsizex || Entities[j].y >= worldsizey || Entities[j].z <= -0.01 || Entities[j].z >= 256)
+        {
+            Entities[j].z -= 0.3;
+        }
+        else if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 0 || GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 6 || GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 7 || GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 8)
+        {
+            if(Entities[j].is_jumping == 0) Entities[j].z -= 0.3;
+        }
+        float old_z = Entities[j].z;
+        if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 0 && (int)Entities[j].z < Entities[j].z && Entities[j].is_jumping == 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 6 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 7 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 8)
+        {
+            Entities[j].z -= 0.3;
+            if(Entities[j].z < (int)old_z) Entities[j].z = (int)old_z;
+        }
+        if(Entities[j].is_jumping)
+        {
+            float ste = 2 * jump_go[Entities[j].jump_tmp];
+            Entities[j].z = (Entities[j].z_in_jump - 2)+(ste);
+            if(Entities[j].x >= 0 && Entities[j].x < worldsizex && Entities[j].y >= 0 && Entities[j].y < worldsizey && Entities[j].z >= 0 && Entities[j].z < 256)
+            {
+                if(Entities[j].jump_down == 0) Entities[j].jump_tmp++;
+                else Entities[j].jump_tmp--;
+                if(Entities[j].jump_tmp == 9) Entities[j].jump_down = 1;
+                if(Entities[j].jump_tmp == 0 && Entities[j].jump_down == 1)
+                {
+                    Entities[j].is_jumping = 0;
+                    Entities[j].jump_down = 0;
+                    Entities[j].jump_tmp = 0;
+                }
+                if(Entities[j].jump_down == 1 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 6 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 7 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 8)
+                {
+                    Entities[j].is_jumping = 0;
+                    Entities[j].jump_down = 0;
+                    Entities[j].jump_tmp = 0;
+                }
+                if(Entities[j].jump_down == 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z+2) != 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z+2) != 7 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z+2) != 8)
+                {
+                    Entities[j].is_jumping = 0;
+                    Entities[j].jump_down = 0;
+                    Entities[j].jump_tmp = 0;
+                }
+            }
+            else
+            {
+                Entities[j].is_jumping = 0;
+                Entities[j].jump_down = 0;
+                Entities[j].jump_tmp = 0;
+            }
+        }
     }
 
     if(Entities[j].anim_step == 0)
@@ -2018,133 +2237,6 @@ void EntityAI(int j)
         Entities[j].hand_left_c += 0.0106;
         Entities[j].hand_left_z -= 0.003;
         if(Entities[j].leg_left == 0) Entities[j].anim_step = 0;
-    }
-
-    float ugol = -Entities[j].Zrot / 180 * M_PI;
-
-    ugol += 0 > 0 ? M_PI_4 : (0 < 0 ? -M_PI_4 : 0);
-    float new_cx = Entities[j].x + (sin(ugol) * 0.05);
-    float new_cy = Entities[j].y + (cos(ugol) * 0.05);
-    int chunkx = new_cx / 16;
-    int chunky = new_cy / 16;
-    int dcx = 16*chunkx;
-    int dcy = 16*chunky;
-    float x = new_cx - dcx;
-    float y = new_cy - dcy;
-    if(new_cx < 0 || new_cy < 0 || new_cx >= worldsizex || new_cy >= worldsizey || Entities[j].z <= -1 || Entities[j].z >= 256)
-    {
-        Entities[j].x = new_cx;
-        Entities[j].y = new_cy;
-        float wsx = worldsizex + 0.3;
-        float wsy = worldsizey + 0.3;
-        if(new_cx <= wsx && new_cx >= worldsizex && Entities[j].z < 45) Entities[j].x = wsx;
-        if(new_cy <= wsy && new_cy >= worldsizey && Entities[j].z < 45) Entities[j].y = wsy;
-        if(new_cx >= -0.3 && new_cx < 0 && Entities[j].z < 45) Entities[j].x = -0.4;
-        if(new_cy >= -0.3 && new_cy < 0 && Entities[j].z < 45) Entities[j].y = -0.4;
-    }
-    else if(world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 0 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 6 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 7 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z] == 8)
-    {
-        if(world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 0 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 6 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 7 || world[chunkx][chunky][(int)x][(int)y][(int)Entities[j].z+1] == 8)
-        {
-            float ccx = (int)new_cx;
-            float ccy = (int)new_cy;
-            if(GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 6 && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 8)
-            {
-                if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z) != 0)
-                {
-                    if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
-                }
-            }
-            if(GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 6 && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 8)
-            {
-                if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z) != 0)
-                {
-                    if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
-                }
-            }
-            if(GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 6 && GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 7 && GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 8)
-            {
-                if(new_cy < Entities[j].y && GetBlockID((int)ccx, (int)new_cy - 1, (int)Entities[j].z) != 0)
-                {
-                    if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
-                }
-            }
-            if(GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 6 && GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 7 && GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 8)
-            {
-                if(new_cy > Entities[j].y && GetBlockID((int)ccx, (int)new_cy + 1, (int)Entities[j].z) != 0)
-                {
-                    if(new_cy >= ccy + 0.3) new_cy = ccy + 0.3;
-                }
-            }
-
-            if(new_cx < Entities[j].x && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 0 && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)Entities[j].z + 1) != 8)
-            {
-                if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
-            }
-            if(new_cx > Entities[j].x && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 0 && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)Entities[j].z + 1) != 8)
-            {
-                if(new_cx >= ccx - 0.3) new_cx = ccx + 0.3;
-            }
-            if(new_cy < Entities[j].y && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 0 && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 7 && GetBlockID((int)new_cx, (int)ccy - 1, (int)Entities[j].z + 1) != 8)
-            {
-                if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
-            }
-            if(new_cy > Entities[j].y && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 0 && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 7 && GetBlockID((int)new_cx, (int)ccy + 1, (int)Entities[j].z + 1) != 8)
-            {
-                if(new_cy >= ccy - 0.3) new_cy = ccy + 0.3;
-            }
-            Entities[j].x = new_cx;
-            Entities[j].y = new_cy;
-        }
-    }
-    if(Entities[j].x <= -0.3 || Entities[j].y <= -0.3 || Entities[j].x >= worldsizex || Entities[j].y >= worldsizey || Entities[j].z <= -0.01 || Entities[j].z >= 256)
-    {
-        Entities[j].z -= 0.3;
-    }
-    else if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 0 || GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 6 || GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 7 || GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) == 8)
-    {
-        if(Entities[j].is_jumping == 0) Entities[j].z -= 0.3;
-    }
-    float old_z = Entities[j].z;
-    if(GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 0 && (int)Entities[j].z < Entities[j].z && Entities[j].is_jumping == 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 6 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 7 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 8)
-    {
-        Entities[j].z -= 0.3;
-        if(Entities[j].z < (int)old_z) Entities[j].z = (int)old_z;
-    }
-    if(Entities[j].is_jumping)
-    {
-        float ste = 2 * jump_go[Entities[j].jump_tmp];
-        Entities[j].z = (Entities[j].z_in_jump - 2)+(ste);
-        if(Entities[j].x >= 0 && Entities[j].x < worldsizex && Entities[j].y >= 0 && Entities[j].y < worldsizey && Entities[j].z >= 0 && Entities[j].z < 256)
-        {
-            if(Entities[j].jump_down == 0) Entities[j].jump_tmp++;
-            else Entities[j].jump_tmp--;
-            if(Entities[j].jump_tmp == 9) Entities[j].jump_down = 1;
-            if(Entities[j].jump_tmp == 0 && Entities[j].jump_down == 1)
-            {
-                Entities[j].is_jumping = 0;
-                Entities[j].jump_down = 0;
-                Entities[j].jump_tmp = 0;
-            }
-            if(Entities[j].jump_down == 1 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 6 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 7 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z-1) != 8)
-            {
-                Entities[j].is_jumping = 0;
-                Entities[j].jump_down = 0;
-                Entities[j].jump_tmp = 0;
-            }
-            if(Entities[j].jump_down == 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z+2) != 0 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z+2) != 7 && GetBlockID((int)Entities[j].x, (int)Entities[j].y, (int)Entities[j].z+2) != 8)
-            {
-                Entities[j].is_jumping = 0;
-                Entities[j].jump_down = 0;
-                Entities[j].jump_tmp = 0;
-            }
-        }
-        else
-        {
-            Entities[j].is_jumping = 0;
-            Entities[j].jump_down = 0;
-            Entities[j].jump_tmp = 0;
-        }
     }
 }
 
@@ -2238,7 +2330,7 @@ void Menu_Show()
 
     glPushMatrix();
         glTranslatef(0,0,0);
-        Text_Out(OPENCRAFT_VERSION);
+        Text_Out(OPENCRAFT_VERSION, 0);
     glPopMatrix();
 
     static float framesPerSecond = 0.0f;
@@ -2258,7 +2350,7 @@ void Menu_Show()
         glTranslatef(0,15,0);
         char line[50];
         sprintf(line, "%d fps, %d обновлений чанков", fps, update_chunks);
-        Text_Out(line);
+        Text_Out(line, 0);
     glPopMatrix();
 
     if(afk == TRUE)
@@ -2282,8 +2374,14 @@ void Menu_Show()
         {
             glPushMatrix();
                 glTranslatef((scrSize.x / 2) - 45, scrY - 80, 0);
-                Text_Out("Меню игры");
+                Text_Out("Меню игры", 0);
             glPopMatrix();
+            if(on_server == TRUE)
+            {
+                Buttons[0].state = 2;
+                Buttons[1].state = 2;
+                Buttons[2].state = 2;
+            }
             ShowButton("Создать новый мир", sizeof("Создать новый мир") - 1, scrX, scrY, 0);
             ShowButton("Загрузить мир", sizeof("Загрузить мир") - 1, scrX, scrY+65, 1);
             ShowButton("Сохранить мир", sizeof("Сохранить мир") - 1, scrX, scrY+130, 2);
@@ -2295,7 +2393,7 @@ void Menu_Show()
         {
             glPushMatrix();
                 glTranslatef((scrSize.x / 2) - 85, scrY - 80, 0);
-                Text_Out("Создать новый мир");
+                Text_Out("Создать новый мир", 0);
             glPopMatrix();
             ShowButton("Маленький", sizeof("Маленький") - 1, scrX, scrY, 4);
             ShowButton("Нормальный", sizeof("Нормальный") - 1, scrX, scrY+65, 5);
@@ -2332,12 +2430,14 @@ int avgnoov(int si_a, int si_b)
     }
 }
 
-void Text_Out(char *text)
+void Text_Out(char *text, int type)
 {
     glPushMatrix();
         glBindTexture(GL_TEXTURE_2D, ascii_texture);
         glVertexPointer(2, GL_FLOAT, 0, rectCoord);
         glTexCoordPointer(2, GL_FLOAT, 0, rectTex);
+        if(type == 0) glColor3f(1, 1, 1);
+        else glColor3f(1, 0, 0);
 
         static float charSize = 1/16.0;
         while(*text)
@@ -2400,7 +2500,7 @@ void UpdateChunk(int chunkx, int chunky)
     }
 }
 
-void GenMenu_Show(char secondLine[], int slSize, BOOL genWorld)
+void GenMenu_Show(char secondLine[], int slSize, int type)
 {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -2430,23 +2530,41 @@ void GenMenu_Show(char secondLine[], int slSize, BOOL genWorld)
     float curx = 0.0;
 
     glPushMatrix();
-        if(!genWorld)
+        if(type == 0)
         {
             curx = (scrSize.x / 2) - ((sizeof("Загрузка мира") - 1)*10 / 2);
             glTranslatef(curx, (scrSize.y / 2) - 20, 0);
-            Text_Out("Загрузка мира");
+            Text_Out("Загрузка мира", 0);
         }
-        else
+        else if(type == 1)
         {
             curx = (scrSize.x / 2) - ((sizeof("Создание мира") - 1)*10 / 2);
             glTranslatef(curx, (scrSize.y / 2) - 20, 0);
-            Text_Out("Создание мира");
+            Text_Out("Создание мира", 0);
+        }
+        else if(type == 2)
+        {
+            curx = (scrSize.x / 2) - ((sizeof("Ошибка подключения") - 1)*10 / 2);
+            glTranslatef(curx, (scrSize.y / 2) - 20, 0);
+            Text_Out("Ошибка подключения", 1);
+        }
+        else if(type == 3)
+        {
+            int size_name = 0;
+            for(int q = 0; q < 512; q++)
+            {
+                if(server.server_name[q] == '\0') break;
+                size_name++;
+            }
+            curx = (scrSize.x / 2) - (size_name*10 / 2);;
+            glTranslatef(curx, (scrSize.y / 2) - 20, 0);
+            Text_Out(server.server_name, 0);
         }
     glPopMatrix();
     glPushMatrix();
         curx = (scrSize.x / 2) - ((slSize - 1)*10 / 2);
         glTranslatef(curx, (scrSize.y / 2) + 5, 0);
-        Text_Out(secondLine);
+        Text_Out(secondLine, 0);
     glPopMatrix();
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -2466,13 +2584,14 @@ void ShowButton(char name[], int tSize, int x, int y, int ID)
         glVertexPointer(2, GL_FLOAT, 0, button);
         if(Buttons[ID].state == 0) glTexCoordPointer(2, GL_FLOAT, 0, button_coord);
         else if(Buttons[ID].state == 1) glTexCoordPointer(2, GL_FLOAT, 0, button_coord_active);
+        else glTexCoordPointer(2, GL_FLOAT, 0, button_coord_closed);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         int curx = (scrSize.x / 2) - (((tSize)*10) / 2);
         float cury = (45 / 2) - 10;
     glPopMatrix();
         glPushMatrix();
             glTranslatef(curx, y+cury, 0);
-            Text_Out(name);
+            Text_Out(name, 0);
         glPopMatrix();
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
@@ -2495,6 +2614,334 @@ int GetHighestBlock(int x, int y)
         {
             return z;
         }
+    }
+}
+
+void WaitMessages()
+{
+    char messages[1000];
+    while(bQuit == FALSE)
+    {
+        int actual_len;
+        char buff[512];
+        for(int iw = 0; iw < 512; iw++)
+        {
+            buff[iw] = 0;
+        }
+        if(SOCKET_ERROR == (actual_len = recv(s, (char*) &buff, 512, 0)))
+        {
+            server_error = TRUE;
+            sprintf(ser_error_text, "Соединение потеряно");
+        }
+        else
+        {
+            if(buff[4] == 'm' && buff[14] == 's')
+            {
+                server_error = TRUE;
+                sprintf(ser_error_text, "Сервер заполнен!");
+            }
+            else if(buff[4] == 's' && buff[14] == 'e')
+            {
+                int cnt = 0;
+                for(int ie = 16; ie < 512; ie++)
+                {
+                    if(buff[ie] == '\0')
+                    {
+                        server.server_name[cnt] = '\0';
+                        break;
+                    }
+                    server.server_name[cnt] = buff[ie];
+                    cnt++;
+                }
+            }
+            else if(buff[4] == 'm' && buff[7] == 'd')
+            {
+                int cnt = 0;
+                for(int ie = 9; ie < 512; ie++)
+                {
+                    if(buff[ie] == '\0') break;
+                    server.motd[cnt] = buff[ie];
+                    cnt++;
+                }
+            }
+            else if(buff[4] == 'w' && buff[12] == 'e')
+            {
+                char worldsize[3];
+                for(int ie = 0; ie < 3; ie++)
+                {
+                    worldsize[ie] = buff[ie+14];
+                }
+                worldsizex = atoi(worldsize);
+                worldsizey = worldsizex;
+            }
+            else if(buff[4] == 's' && buff[12] == 'k')
+            {
+                int x_i, y_i, z_i, block_i;
+                char x_t[10];
+                char y_t[10];
+                char z_t[10];
+                char block_t[10];
+                int now = 0;
+                int cnt = 0;
+                for(int iw = 0; iw < 10; iw++)
+                {
+                    x_t[iw] = 0;
+                    y_t[iw] = 0;
+                    z_t[iw] = 0;
+                    block_t[iw] = 0;
+                }
+                now = 0;
+                cnt = 0;
+                for(int e = 14; e < 512; e++)
+                {
+                    if(buff[e] == ' ' && now == 3 || buff[e] == '\0') break;
+                    if(buff[e] == ' ')
+                    {
+                        now++;
+                        cnt = 0;
+                        continue;
+                    }
+                    if(now == 0) x_t[cnt] = buff[e];
+                    else if(now == 1) y_t[cnt] = buff[e];
+                    else if(now == 2) z_t[cnt] = buff[e];
+                    else block_t[cnt] = buff[e];
+                    cnt++;
+                }
+                x_i = atoi(x_t);
+                y_i = atoi(y_t);
+                z_i = atoi(z_t);
+                block_i = atoi(block_t);
+                int chunkx = x_i / 16;
+                int chunky = y_i / 16;
+                int dcx = 16*chunkx;
+                int dcy = 16*chunky;
+                int fx = x_i - dcx;
+                int fy = y_i - dcy;
+                world[chunkx][chunky][fx][fy][z_i] = block_i;
+                if(block_i == 0 && server_loaded == TRUE)
+                {
+                    for(int i = 0; i < 100; i++)
+                    {
+                        if(Sprites[i].block_id == 0)
+                        {
+                            int a = 0;
+                            for(int zf = 0; zf < 3; zf++)
+                            {
+                                for(int xf = 0; xf < 3; xf++)
+                                {
+                                    Sprites[i].x[a] = (int)x_i + (0.3 * xf);
+                                    Sprites[i].y[a] = (int)y_i;
+                                    Sprites[i].z[a] = (int)z_i + (0.3 * zf);
+                                    a++;
+                                }
+                            }
+
+                            Sprites[i].block_id = block_i;
+                            Sprites[i].step = 0;
+                            break;
+                        }
+                    }
+                }
+            }
+            else if(buff[4] == 'w' && buff[20] == 'd')
+            {
+                for(int iw = 0; iw < 512; iw++)
+                {
+                    buff[iw] = 0;
+                }
+                sprintf(buff, "ops get_spawn");
+                if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+                {
+                    server_error = TRUE;
+                    sprintf(ser_error_text, "Неизвестная ошибка");
+                }
+            }
+            else if(buff[4] == 's' && buff[8] == 'n')
+            {
+                float x_f, y_f, z_f, Xrot_f, Zrot_f;
+                char x_t[10], y_t[10], z_t[10], Xrot_t[10], Zrot_t[10];
+                int now = 0;
+                int cnt = 0;
+                for(int iw = 0; iw < 10; iw++)
+                {
+                    x_t[iw] = 0;
+                    y_t[iw] = 0;
+                    z_t[iw] = 0;
+                }
+                for(int e = 10; e < 512; e++)
+                {
+                    if(buff[e] == ' ' && now == 4 || buff[e] == '\0') break;
+                    if(buff[e] == ' ')
+                    {
+                        now++;
+                        cnt = 0;
+                        continue;
+                    }
+                    if(now == 0) x_t[cnt] = buff[e];
+                    else if(now == 1) y_t[cnt] = buff[e];
+                    else if(now == 2) z_t[cnt] = buff[e];
+                    else if(now == 3) Xrot_t[cnt] = buff[e];
+                    else Zrot_t[cnt] = buff[e];
+                    cnt++;
+                }
+                x_f = atof(x_t);
+                y_f = atof(y_t);
+                z_f = atof(z_t);
+                Xrot_f = atof(Xrot_t);
+                Zrot_f = atof(Zrot_t);
+                camera.x = x_f;
+                camera.y = y_f;
+                camera.z = z_f;
+                camera.Xrot = Xrot_f;
+                camera.Zrot = Zrot_f;
+                spawn.x = x_f;
+                spawn.y = y_f;
+                spawn.z = z_f;
+                spawn.Xrot = Xrot_f;
+                spawn.Zrot = Zrot_f;
+                for(int iw = 0; iw < 512; iw++)
+                {
+                    buff[iw] = 0;
+                }
+                sprintf(buff, "ops get_mobs");
+                if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+                {
+                    server_error = TRUE;
+                    sprintf(ser_error_text, "Неизвестная ошибка");
+                }
+            }
+            else if(buff[4] == 's' && buff[16] == 'd')
+            {
+                float x_f, y_f, z_f, Xrot_f, Zrot_f;
+                int eid_i, id_i;
+                char x_t[10], y_t[10], z_t[10], Xrot_t[10], Zrot_t[10], eid_t[10], id_t[10];
+                int now = 0;
+                int cnt = 0;
+                for(int e = 10; e < 512; e++)
+                {
+                    if(buff[e] == ' ' && now == 6) break;
+                    if(buff[e] == ' ')
+                    {
+                        now++;
+                        cnt = 0;
+                        continue;
+                    }
+                    if(now == 0) x_t[cnt] = buff[e];
+                    else if(now == 1) y_t[cnt] = buff[e];
+                    else if(now == 2) z_t[cnt] = buff[e];
+                    else if(now == 3) Xrot_t[cnt] = buff[e];
+                    else if(now == 4) Zrot_t[cnt] = buff[e];
+                    else if(now == 5) eid_t[cnt] = buff[e];
+                    else id_t[cnt] = buff[e];
+                    cnt++;
+                }
+                x_f = atof(x_t);
+                y_f = atof(y_t);
+                z_f = atof(z_t);
+                Xrot_f = atof(Xrot_t);
+                Zrot_f = atof(Zrot_t);
+                eid_i = atoi(eid_t);
+                id_i = atoi(id_t);
+                Entities[id_i].x = x_f;
+                Entities[id_i].y = y_f;
+                Entities[id_i].z = z_f;
+                Entities[id_i].Xrot = Xrot_f;
+                Entities[id_i].Zrot = Zrot_f;
+            }
+            else if(buff[4] == 'm' && buff[18] == 'd')
+            {
+                server_loaded = TRUE;
+                cursorShow = FALSE;
+                while (ShowCursor(FALSE) >= 0);
+            }
+            else if(buff[4] == 'g' && buff[14] == 'n')
+            {
+                for(int iw = 0; iw < 512; iw++)
+                {
+                    buff[iw] = 0;
+                }
+                sprintf(buff, "ops version %s", OPENCRAFT_VERSION);
+                if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+                {
+                    server_error = TRUE;
+                    sprintf(ser_error_text, "Неизвестная ошибка");
+                }
+            }
+            else if(buff[4] == 'b' && buff[14] == 'n')
+            {
+                server_error = TRUE;
+                sprintf(ser_error_text, "Неизвестная ошибка");
+            }
+            else if(buff[4] == 's' && buff[11] == 'd')
+            {
+                float x_f, y_f, z_f, Xrot_f, Zrot_f;
+                int id_i;
+                char x_t[10];
+                char y_t[10];
+                char z_t[10];
+                char Xrot_t[10];
+                char Zrot_t[10];
+                char id_t[10];
+                int now = 0;
+                int cnt = 0;
+                for(int iw = 0; iw < 10; iw++)
+                {
+                    x_t[iw] = 0;
+                    y_t[iw] = 0;
+                    z_t[iw] = 0;
+                    Xrot_t[iw] = 0;
+                    Zrot_t[iw] = 0;
+                    id_t[iw] = 0;
+                }
+                now = 0;
+                cnt = 0;
+                for(int e = 13; e < 512; e++)
+                {
+                    if(buff[e] == ' ' && now == 5 || buff[e] == '\0') break;
+                    if(buff[e] == ' ')
+                    {
+                        now++;
+                        cnt = 0;
+                        continue;
+                    }
+                    if(now == 0) x_t[cnt] = buff[e];
+                    else if(now == 1) y_t[cnt] = buff[e];
+                    else if(now == 2) z_t[cnt] = buff[e];
+                    else if(now == 3) Xrot_t[cnt] = buff[e];
+                    else if(now == 4) Zrot_t[cnt] = buff[e];
+                    else id_t[cnt] = buff[e];
+                    cnt++;
+                }
+                x_f = atof(x_t);
+                y_f = atof(y_t);
+                z_f = atof(z_t);
+                Xrot_f = atof(Xrot_t);
+                Zrot_f = atof(Zrot_t);
+                id_i = atoi(id_t);
+                Entities[500+id_i].x = x_f;
+                Entities[500+id_i].y = y_f;
+                Entities[500+id_i].z = z_f;
+                Entities[500+id_i].Xrot = Xrot_f;
+                Entities[500+id_i].Zrot = Zrot_f;
+                Entities[500+id_i].entity_id = 1;
+            }
+        }
+    }
+    return 0;
+}
+
+void SendCameraPos()
+{
+    char buff[512];
+    for(int iw = 0; iw < 512; iw++)
+    {
+        buff[iw] = 0;
+    }
+    sprintf(buff, "ops setcoord %f %f %f %f %f", camera.x, camera.y, camera.z, camera.Xrot, camera.Zrot);
+    if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+    {
+        server_error = TRUE;
+        sprintf(ser_error_text, "Неизвестная ошибка");
     }
 }
 
@@ -2537,12 +2984,12 @@ int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine,
                    int nCmdShow)
+
 {
     WNDCLASSEX wcex;
     HWND hwnd;
     HGLRC hRC;
     MSG msg;
-    BOOL bQuit = FALSE;
 
     /* register window class */
     wcex.cbSize = sizeof(WNDCLASSEX);
@@ -2559,6 +3006,96 @@ int WINAPI WinMain(HINSTANCE hInstance,
     wcex.hIconSm = LoadIcon(NULL, IDI_APPLICATION);;
 
     SetCursor(wcex.hCursor);
+
+    char argument[1000];
+    char value[1000];
+
+    FILE *server_ip;
+
+    char sp[1000];
+
+    server_ip = fopen("server.dat", "rt");
+
+    if(server_ip != NULL)
+    {
+        while(!feof(server_ip))
+        {
+            fgets(sp, 1000, server_ip);
+            if(sp[0] == '#') continue;
+            BOOL exit = FALSE;
+            for(int i = 0; i < 1000; i++)
+            {
+                if(sp[i] == '=')
+                {
+                    for(int iw = 0; iw < 1000; iw++)
+                    {
+                        argument[iw] = 0;
+                        value[iw] = 0;
+                    }
+                    for(int iq = 0; iq < i; iq++)
+                    {
+                        argument[iq] = sp[iq];
+                    }
+                    int cnt = 0;
+                    for(int ie = i+1; ie < 1000; ie++)
+                    {
+                        if(sp[ie] == '\n') break;
+                        value[cnt] = sp[ie];
+                        cnt++;
+                    }
+                    if(strcmp(argument, "server-ip") == 0)
+                    {
+                        strcpy(server.ip, value);
+                    }
+                    else if(strcmp(argument, "port") == 0)
+                    {
+                        server.port = atoi(value);
+                    }
+                    exit = TRUE;
+                }
+                if(exit == TRUE) break;
+            }
+        }
+        fclose(server_ip);
+    }
+
+    if(server.port != 0 && strlen(server.ip) != 0)
+    {
+        on_server = TRUE;
+        if(FAILED(WSAStartup(MAKEWORD(1, 1), &ws)))
+        {
+            on_server = FALSE;
+        }
+        if(INVALID_SOCKET == (s = socket(AF_INET, SOCK_STREAM, 0)))
+        {
+            on_server = FALSE;
+        }
+
+        SOCKADDR_IN adr;
+        ZeroMemory(&adr, sizeof(adr));
+        adr.sin_family = AF_INET;
+        adr.sin_addr.S_un.S_addr = inet_addr(server.ip);
+        adr.sin_port = htons(server.port);
+
+        if(SOCKET_ERROR == (connect(s, (SOCKADDR *) &adr, sizeof(adr))))
+        {
+            on_server = FALSE;
+        }
+        else
+        {
+            pthread_t thread;
+            int status;
+            int status_addr;
+
+            status = pthread_create(&thread, NULL, WaitMessages, NULL);
+
+            if(status != 0)
+            {
+                server_error = TRUE;
+                sprintf(ser_error_text, "Ошибка создания потока");
+            }
+        }
+    }
 
 
     if (!RegisterClassEx(&wcex))
@@ -2604,6 +3141,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
             /* handle or dispatch messages */
             if (msg.message == WM_QUIT)
             {
+                if(on_server == TRUE) closesocket(s);
                 bQuit = TRUE;
             }
             else
@@ -2615,145 +3153,441 @@ int WINAPI WinMain(HINSTANCE hInstance,
         else
         {
 
-            glPushMatrix();
-                Game_Show();
-                Menu_Show();
-
-            glPopMatrix();
-
-            SwapBuffers(hDC);
-
-            if(timer_del_chunks == 0)
+            if(on_server == FALSE)
             {
-                update_chunks = 0;
-                timer_del_chunks = 60;
-                for(int y = 0; y < 16; y++)
+
+                glPushMatrix();
+                    Game_Show();
+                    Menu_Show();
+
+                glPopMatrix();
+
+                SwapBuffers(hDC);
+
+                if(timer_del_chunks == 0)
                 {
-                    for(int x = 0; x < 16; x++)
+                    update_chunks = 0;
+                    timer_del_chunks = 60;
+                    for(int y = 0; y < 16; y++)
                     {
-                        chunk_update[x][y] = FALSE;
+                        for(int x = 0; x < 16; x++)
+                        {
+                            chunk_update[x][y] = FALSE;
+                        }
+                    }
+                }
+                static float lastTime = 0.0f;
+                float currentTime = GetTickCount() * 0.001f;
+                if(currentTime - lastTime > 0.01f)
+                {
+                    float qwe = 0.0;
+                    if(currentTime - lastTime <= 1) qwe = (currentTime - lastTime) / 0.01f;
+                    else qwe = 1;
+                    lastTime = currentTime;
+                    for(int cnt = 1; cnt <= (int)qwe; cnt++)
+                    {
+                        glPushMatrix();
+                            if (GetForegroundWindow() == hwnd && afk == FALSE) Player_Move();
+                        glPopMatrix();
+                        if(afk == FALSE) for(int qwe = 0; qwe < 500; qwe++) EntityAI(qwe);
+                        int chunkx = camera.x / 16;
+                        int chunky = camera.y / 16;
+                        int cameraz = (int)camera.z - 1;
+                        int jdcx = 16*chunkx;
+                        int jdcy = 16*chunky;
+                        float xjump = camera.x - jdcx;
+                        float yjump = camera.y - jdcy;
+
+                        BOOL is_fly = FALSE;
+                        BOOL is_up = FALSE;
+
+                        if(is_jumping && afk == FALSE)
+                        {
+                            float ste = 2 * jump_go[jump_tmp];
+                            camera.z = (camera_z_in_jump - 2)+(ste);
+                            if(camera.x >= 0 && camera.x < worldsizex && camera.y >= 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256)
+                            {
+                                if(!jump_down) jump_tmp++;
+                                else jump_tmp--;
+                                timer = 10;
+                                if(jump_tmp == 9)
+                                {
+                                    is_jumping = FALSE;
+                                    jump_down = FALSE;
+                                    jump_tmp = 0;
+                                }
+                                if(jump_tmp == 0 && jump_down)
+                                {
+                                    is_jumping = FALSE;
+                                    jump_down = FALSE;
+                                    jump_tmp = 0;
+                                }
+                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
+                                {
+                                    is_jumping = FALSE;
+                                    jump_down = FALSE;
+                                    jump_tmp = 0;
+                                }
+                                if(jump_down == FALSE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z + 2] != 0)
+                                {
+                                    is_jumping = FALSE;
+                                    jump_down = FALSE;
+                                    jump_tmp = 0;
+                                }
+                            }
+                            else
+                            {
+                                is_jumping = FALSE;
+                                jump_down = FALSE;
+                                timer = 3;
+                                jump_tmp = 0;
+                            }
+                        }
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(' ') < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(' ') < 0 && timer_pl <= 0)
+                        {
+                            if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 8) {}
+                            else
+                            {
+                                is_up = TRUE;
+                                int z_old = (int)camera.z;
+                                float z_new = camera.z + 0.03;
+                                float ccx = (int)camera.x;
+                                float ccy = (int)camera.y;
+                                if((int)z_new > z_old && GetBlockID((int)camera.x, (int)camera.y, (int)z_new) == 0)
+                                {
+                                    if(GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 0 && GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 8)
+                                    {
+                                        if(camera.x <= ccx + 0.5) camera.z += 0.03;
+                                        else timer_pl = 20;
+                                    }
+                                    else if(GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 0 && GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 8)
+                                    {
+                                        if(camera.x >= ccx - 0.5) camera.z += 0.03;
+                                        else timer_pl = 20;
+                                    }
+                                    else if(GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 0 && GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 8)
+                                    {
+                                        if(camera.y <= ccy + 0.5) camera.z += 0.03;
+                                        else timer_pl = 20;
+                                    }
+                                    else if(GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 0 && GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 8)
+                                    {
+                                        if(camera.y >= ccy - 0.5) camera.z += 0.03;
+                                        else timer_pl = 20;
+                                    }
+
+
+                                    else timer_pl = 20;
+                                }
+                                else camera.z += 0.03;
+                            }
+                        }
+                        int cx = worldsizex / 16 - 1;
+                        int cy = worldsizey / 16 - 1;
+                        if(chunkx > cx || chunky > cy || camera.x < 0 || camera.y < 0 || cameraz <= -1 || chunkx < 0 || chunky < 0)
+                        {
+                            if(!is_jumping && afk == FALSE)
+                            {
+                                camera.z -= 0.3;
+                                is_fly = TRUE;
+                            }
+                        }
+                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping)
+                        {
+                            if(afk == FALSE)
+                            {
+                                if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 8)
+                                {
+                                    camera.z -= 0.3;
+                                    is_fly = TRUE;
+                                }
+                                else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 7 && is_up == FALSE)
+                                {
+                                    camera.z -= 0.02;
+                                    is_fly = TRUE;
+                                }
+                                else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 8 && is_up == FALSE)
+                                {
+                                    camera.z -= 0.02;
+                                    is_fly = TRUE;
+                                }
+                            }
+                        }
+                        if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE)
+                        {
+                            if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
+                            {
+                                if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
+                                {
+                                    is_jumping = TRUE;
+                                    camera_z_in_jump = camera.z;
+                                    space = TRUE;
+                                }
+                            }
+                        }
+
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 6 && !is_fly && !is_jumping && !is_up)
+                        {
+                            float new_z = camera.z - 0.3;
+                            if((int)new_z < (int)camera.z) camera.z = (int)camera.z;
+                            else
+                            {
+                                camera.z -= 0.3;
+                            }
+                        }
+
+                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE)
+                        {
+                            camera.x = spawn.x;
+                            camera.y = spawn.y;
+                            camera.z = spawn.z;
+                            camera.Xrot = spawn.Xrot;
+                            camera.Zrot = spawn.Zrot;
+                        }
+                        if(GetKeyState('G') < 0 && timer_g <= 0 && afk == FALSE)
+                        {
+                            for(int y = 0; y < 500; y++)
+                            {
+                                if(Entities[y].entity_id == 0)
+                                {
+                                    Entities[y].entity_id = 1;
+                                    Entities[y].x = camera.x;
+                                    Entities[y].y = camera.y;
+                                    Entities[y].z = camera.z;
+                                    timer_g = 10;
+                                    break;
+                                }
+                            }
+                        }
+                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE)
+                        {
+                            if(!inverted_y) inverted_y = TRUE;
+                            else inverted_y = FALSE;
+                            timer_y = 10;
+                        }
+                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE)
+                        {
+                            if(render_distance < 4) render_distance++;
+                            else render_distance = 1;
+                            glFogf(GL_FOG_START, 8.0f*render_distance);
+                            glFogf(GL_FOG_END, 9.0f*render_distance);
+                            timer_f = 10;
+                        }
+                        if(GetKeyState('N') < 0 && timer_n <= 0 && afk == FALSE && map_changed == TRUE)
+                        {
+                            SaveWorld();
+                            timer_n = 10;
+                        }
+                        if(GetKeyState(VK_RETURN) < 0 && timer_enter <= 0 && afk == FALSE)
+                        {
+                            spawn.x = camera.x;
+                            spawn.y = camera.y;
+                            spawn.z = camera.z;
+                            spawn.Xrot = camera.Xrot;
+                            spawn.Zrot = camera.Zrot;
+                            timer_enter = 10;
+                        }
+                        if(afk == FALSE) SpritesManage();
+
+                        theta += 0,1080000108;
+                    }
+                    timer--;
+                    timer_r--;
+                    timer_g--;
+                    timer_y--;
+                    timer_f--;
+                    timer_n--;
+                    timer_pl--;
+                    timer_enter--;
+                    timer_del_chunks--;
+                }
+                if(GetKeyState(' ') > 0) space = FALSE;
+                static float lastTimeLM = 0.0f;
+                float currentTimeLM = GetTickCount() * 0.001f;
+                if(currentTimeLM - lastTimeLM > 0.25f)
+                {
+                    lastTimeLM = currentTimeLM;
+                    lbutton_timer = FALSE;
+                }
+                if(GetKeyState(VK_LBUTTON) < 0 && lbutton_timer == FALSE)
+                {
+                    if(afk == FALSE)
+                    {
+                        PlayerSetBlock();
+                        lbutton_timer = TRUE;
                     }
                 }
             }
-            static float lastTime = 0.0f;
-            float currentTime = GetTickCount() * 0.001f;
-            if(currentTime - lastTime > 0.01f)
+            else
             {
-                float qwe = 0.0;
-                if(currentTime - lastTime <= 1) qwe = (currentTime - lastTime) / 0.01f;
-                else qwe = 1;
-                lastTime = currentTime;
-                for(int cnt = 1; cnt <= (int)qwe; cnt++)
+                if(server_error == TRUE)
+                {
+                    cursorShow = TRUE;
+                    while (ShowCursor(TRUE) <= 0);
+                    int size = 0;
+                    for(int q = 0; q < 512; q++)
+                    {
+                        if(ser_error_text[q] == '\0') break;
+                        size++;
+                    }
+                    GenMenu_Show(ser_error_text, size+1, 2);
+                    SwapBuffers(hDC);
+                }
+                else if(server_loaded == FALSE)
+                {
+                    cursorShow = TRUE;
+                    while (ShowCursor(TRUE) <= 0);
+                    int size_motd = 0;
+                    for(int q = 0; q < 512; q++)
+                    {
+                        if(server.motd[q] == '\0') break;
+                        size_motd++;
+                    }
+                    GenMenu_Show(server.motd, size_motd, 3);
+                    SwapBuffers(hDC);
+
+                    if(!sendGetWorld)
+                    {
+                        char buff[512];
+                        for(int iw = 0; iw < 512; iw++)
+                        {
+                            buff[iw] = 0;
+                        }
+                        sprintf(buff, "ops get_world");
+                        if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+                        {
+                            server_error = TRUE;
+                            sprintf(ser_error_text, "Неизвестная ошибка");
+                        }
+                        sendGetWorld = TRUE;
+                    }
+                }
+                else
                 {
                     glPushMatrix();
-                        if (GetForegroundWindow() == hwnd && afk == FALSE) Player_Move();
-                    glPopMatrix();
-                    if(afk == FALSE) for(int qwe = 0; qwe < 500; qwe++) EntityAI(qwe);
-                    int chunkx = camera.x / 16;
-                    int chunky = camera.y / 16;
-                    int cameraz = (int)camera.z - 1;
-                    int jdcx = 16*chunkx;
-                    int jdcy = 16*chunky;
-                    float xjump = camera.x - jdcx;
-                    float yjump = camera.y - jdcy;
+                    Game_Show();
+                    Menu_Show();
 
-                    BOOL is_fly = FALSE;
-                    BOOL is_up = FALSE;
+                glPopMatrix();
 
-                    if(is_jumping && afk == FALSE)
+                SwapBuffers(hDC);
+                static float lastTime = 0.0f;
+                float currentTime = GetTickCount() * 0.001f;
+                if(currentTime - lastTime > 0.01f)
+                {
+                    float qwe = 0.0;
+                    if(currentTime - lastTime <= 1) qwe = (currentTime - lastTime) / 0.01f;
+                    else qwe = 1;
+                    lastTime = currentTime;
+                    for(int cnt = 1; cnt <= (int)qwe; cnt++)
                     {
-                        float ste = 2 * jump_go[jump_tmp];
-                        camera.z = (camera_z_in_jump - 2)+(ste);
-                        if(camera.x >= 0 && camera.x < worldsizex && camera.y >= 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256)
+                        glPushMatrix();
+                            if (GetForegroundWindow() == hwnd && afk == FALSE) Player_Move();
+                        glPopMatrix();
+                        for(int qwe = 500; qwe < 1500; qwe++) EntityAI(qwe);
+                        int chunkx = camera.x / 16;
+                        int chunky = camera.y / 16;
+                        int cameraz = (int)camera.z - 1;
+                        int jdcx = 16*chunkx;
+                        int jdcy = 16*chunky;
+                        float xjump = camera.x - jdcx;
+                        float yjump = camera.y - jdcy;
+
+                        BOOL is_fly = FALSE;
+                        BOOL is_up = FALSE;
+
+                        if(is_jumping)
                         {
-                            if(!jump_down) jump_tmp++;
-                            else jump_tmp--;
-                            timer = 10;
-                            if(jump_tmp == 9)
+                            float ste = 2 * jump_go[jump_tmp];
+                            camera.z = (camera_z_in_jump - 2)+(ste);
+                            if(camera.x >= 0 && camera.x < worldsizex && camera.y >= 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256)
+                            {
+                                if(!jump_down) jump_tmp++;
+                                else jump_tmp--;
+                                timer = 10;
+                                if(jump_tmp == 9)
+                                {
+                                    is_jumping = FALSE;
+                                    jump_down = FALSE;
+                                    jump_tmp = 0;
+                                }
+                                if(jump_tmp == 0 && jump_down)
+                                {
+                                    is_jumping = FALSE;
+                                    jump_down = FALSE;
+                                    jump_tmp = 0;
+                                }
+                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
+                                {
+                                    is_jumping = FALSE;
+                                    jump_down = FALSE;
+                                    jump_tmp = 0;
+                                }
+                                if(jump_down == FALSE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z + 2] != 0)
+                                {
+                                    is_jumping = FALSE;
+                                    jump_down = FALSE;
+                                    jump_tmp = 0;
+                                }
+                            }
+                            else
                             {
                                 is_jumping = FALSE;
                                 jump_down = FALSE;
-                                jump_tmp = 0;
-                            }
-                            if(jump_tmp == 0 && jump_down)
-                            {
-                                is_jumping = FALSE;
-                                jump_down = FALSE;
-                                jump_tmp = 0;
-                            }
-                            if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
-                            {
-                                is_jumping = FALSE;
-                                jump_down = FALSE;
-                                jump_tmp = 0;
-                            }
-                            if(jump_down == FALSE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z + 2] != 0)
-                            {
-                                is_jumping = FALSE;
-                                jump_down = FALSE;
+                                timer = 3;
                                 jump_tmp = 0;
                             }
                         }
-                        else
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(' ') < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(' ') < 0 && timer_pl <= 0)
                         {
-                            is_jumping = FALSE;
-                            jump_down = FALSE;
-                            timer = 3;
-                            jump_tmp = 0;
-                        }
-                    }
-                    if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(' ') < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(' ') < 0 && timer_pl <= 0)
-                    {
-                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 8) {}
-                        else
-                        {
-                            is_up = TRUE;
-                            int z_old = (int)camera.z;
-                            float z_new = camera.z + 0.03;
-                            float ccx = (int)camera.x;
-                            float ccy = (int)camera.y;
-                            if((int)z_new > z_old && GetBlockID((int)camera.x, (int)camera.y, (int)z_new) == 0)
+                            if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 8) {}
+                            else
                             {
-                                if(GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 0 && GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 8)
+                                is_up = TRUE;
+                                int z_old = (int)camera.z;
+                                float z_new = camera.z + 0.03;
+                                float ccx = (int)camera.x;
+                                float ccy = (int)camera.y;
+                                if((int)z_new > z_old && GetBlockID((int)camera.x, (int)camera.y, (int)z_new) == 0)
                                 {
-                                    if(camera.x <= ccx + 0.5) camera.z += 0.03;
-                                    else timer_pl = 20;
-                                }
-                                else if(GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 0 && GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 8)
-                                {
-                                    if(camera.x >= ccx - 0.5) camera.z += 0.03;
-                                    else timer_pl = 20;
-                                }
-                                else if(GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 0 && GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 8)
-                                {
-                                    if(camera.y <= ccy + 0.5) camera.z += 0.03;
-                                    else timer_pl = 20;
-                                }
-                                else if(GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 0 && GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 8)
-                                {
-                                    if(camera.y >= ccy - 0.5) camera.z += 0.03;
-                                    else timer_pl = 20;
-                                }
+                                    if(GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 0 && GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x - 1, (int)camera.y, (int)camera.z) != 8)
+                                    {
+                                        if(camera.x <= ccx + 0.5) camera.z += 0.03;
+                                        else timer_pl = 20;
+                                    }
+                                    else if(GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 0 && GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x + 1, (int)camera.y, (int)camera.z) != 8)
+                                    {
+                                        if(camera.x >= ccx - 0.5) camera.z += 0.03;
+                                        else timer_pl = 20;
+                                    }
+                                    else if(GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 0 && GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y+1, (int)camera.z) != 8)
+                                    {
+                                        if(camera.y <= ccy + 0.5) camera.z += 0.03;
+                                        else timer_pl = 20;
+                                    }
+                                    else if(GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 0 && GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y-1, (int)camera.z) != 8)
+                                    {
+                                        if(camera.y >= ccy - 0.5) camera.z += 0.03;
+                                        else timer_pl = 20;
+                                    }
 
 
-                                else timer_pl = 20;
+                                    else timer_pl = 20;
+                                }
+                                else camera.z += 0.03;
                             }
-                            else camera.z += 0.03;
                         }
-                    }
-                    int cx = worldsizex / 16 - 1;
-                    int cy = worldsizey / 16 - 1;
-                    if(chunkx > cx || chunky > cy || camera.x < 0 || camera.y < 0 || cameraz <= -1 || chunkx < 0 || chunky < 0)
-                    {
-                        if(!is_jumping && afk == FALSE)
+                        int cx = worldsizex / 16 - 1;
+                        int cy = worldsizey / 16 - 1;
+                        if(chunkx > cx || chunky > cy || camera.x < 0 || camera.y < 0 || cameraz <= -1 || chunkx < 0 || chunky < 0)
                         {
-                            camera.z -= 0.3;
-                            is_fly = TRUE;
+                            if(!is_jumping)
+                            {
+                                camera.z -= 0.3;
+                                is_fly = TRUE;
+                            }
                         }
-                    }
-                    else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping)
-                    {
-                        if(afk == FALSE)
+                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping)
                         {
                             if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 8)
                             {
@@ -2771,110 +3605,88 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 is_fly = TRUE;
                             }
                         }
-                    }
-                    if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE)
-                    {
-                        if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
+                        if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE)
                         {
-                            if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
+                            if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
                             {
-                                is_jumping = TRUE;
-                                camera_z_in_jump = camera.z;
-                                space = TRUE;
+                                if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
+                                {
+                                    is_jumping = TRUE;
+                                    camera_z_in_jump = camera.z;
+                                    space = TRUE;
+                                }
                             }
                         }
-                    }
 
-                    if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 6 && !is_fly && !is_jumping && !is_up)
-                    {
-                        float new_z = camera.z - 0.3;
-                        if((int)new_z < (int)camera.z) camera.z = (int)camera.z;
-                        else
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 6 && !is_fly && !is_jumping && !is_up)
                         {
-                            camera.z -= 0.3;
-                        }
-                    }
-
-                    if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE)
-                    {
-                        camera.x = spawn.x;
-                        camera.y = spawn.y;
-                        camera.z = spawn.z;
-                        camera.Xrot = spawn.Xrot;
-                        camera.Zrot = spawn.Zrot;
-                    }
-                    if(GetKeyState('G') < 0 && timer_g <= 0 && afk == FALSE)
-                    {
-                        for(int y = 0; y < 500; y++)
-                        {
-                            if(Entities[y].entity_id == 0)
+                            float new_z = camera.z - 0.3;
+                            if((int)new_z < (int)camera.z) camera.z = (int)camera.z;
+                            else
                             {
-                                Entities[y].entity_id = 1;
-                                Entities[y].x = camera.x;
-                                Entities[y].y = camera.y;
-                                Entities[y].z = camera.z;
-                                timer_g = 10;
-                                break;
+                                camera.z -= 0.3;
                             }
                         }
-                    }
-                    if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE)
-                    {
-                        if(!inverted_y) inverted_y = TRUE;
-                        else inverted_y = FALSE;
-                        timer_y = 10;
-                    }
-                    if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE)
-                    {
-                        if(render_distance < 4) render_distance++;
-                        else render_distance = 1;
-                        glFogf(GL_FOG_START, 8.0f*render_distance);
-                        glFogf(GL_FOG_END, 9.0f*render_distance);
-                        timer_f = 10;
-                    }
-                    if(GetKeyState('N') < 0 && timer_n <= 0 && afk == FALSE && map_changed == TRUE)
-                    {
-                        SaveWorld();
-                        timer_n = 10;
-                    }
-                    if(GetKeyState(VK_RETURN) < 0 && timer_enter <= 0 && afk == FALSE)
-                    {
-                        spawn.x = camera.x;
-                        spawn.y = camera.y;
-                        spawn.z = camera.z;
-                        spawn.Xrot = camera.Xrot;
-                        spawn.Zrot = camera.Zrot;
-                        timer_enter = 10;
-                    }
-                    if(afk == FALSE) SpritesManage();
 
-                    theta += 0,1080000108;
+                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE)
+                        {
+                            camera.x = spawn.x;
+                            camera.y = spawn.y;
+                            camera.z = spawn.z;
+                            camera.Xrot = spawn.Xrot;
+                            camera.Zrot = spawn.Zrot;
+                        }
+                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE)
+                        {
+                            if(!inverted_y) inverted_y = TRUE;
+                            else inverted_y = FALSE;
+                            timer_y = 10;
+                        }
+                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE)
+                        {
+                            if(render_distance < 4) render_distance++;
+                            else render_distance = 1;
+                            glFogf(GL_FOG_START, 8.0f*render_distance);
+                            glFogf(GL_FOG_END, 9.0f*render_distance);
+                            timer_f = 10;
+                        }
+                        SpritesManage();
+
+                        theta += 0,1080000108;
+                    }
+                    timer--;
+                    timer_r--;
+                    timer_g--;
+                    timer_y--;
+                    timer_f--;
+                    timer_n--;
+                    timer_pl--;
+                    timer_enter--;
+                    timer_del_chunks--;
                 }
-                timer--;
-                timer_r--;
-                timer_g--;
-                timer_y--;
-                timer_f--;
-                timer_n--;
-                timer_pl--;
-                timer_enter--;
-                timer_del_chunks--;
-            }
-        }
-        if(GetKeyState(' ') > 0) space = FALSE;
-        static float lastTimeLM = 0.0f;
-        float currentTimeLM = GetTickCount() * 0.001f;
-        if(currentTimeLM - lastTimeLM > 0.25f)
-        {
-            lastTimeLM = currentTimeLM;
-            lbutton_timer = FALSE;
-        }
-        if(GetKeyState(VK_LBUTTON) < 0 && lbutton_timer == FALSE)
-        {
-            if(afk == FALSE)
-            {
-                PlayerSetBlock();
-                lbutton_timer = TRUE;
+                if(GetKeyState(' ') > 0) space = FALSE;
+                static float lastTimeLM = 0.0f;
+                float currentTimeLM = GetTickCount() * 0.001f;
+                if(currentTimeLM - lastTimeLM > 0.25f)
+                {
+                    lastTimeLM = currentTimeLM;
+                    lbutton_timer = FALSE;
+                }
+                if(GetKeyState(VK_LBUTTON) < 0 && lbutton_timer == FALSE)
+                {
+                    if(afk == FALSE)
+                    {
+                        PlayerSetBlock();
+                        lbutton_timer = TRUE;
+                    }
+                }
+                if(camera.x != old_x || camera.y != old_y || camera.z != old_z || camera.Xrot != old_Xrot || camera.Zrot != old_Zrot) SendCameraPos();
+                old_x = camera.x;
+                old_y = camera.y;
+                old_z = camera.z;
+                old_Xrot = camera.Xrot;
+                old_Zrot = camera.Zrot;
+                }
             }
         }
     }
@@ -2893,7 +3705,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
         case WM_CLOSE:
-            SaveWorld();
+            if(on_server == FALSE) SaveWorld();
             PostQuitMessage(0);
         break;
 
@@ -2918,8 +3730,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if(menu_page == 0)
                 {
-                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 0)) menu_page = 1;
-                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 2))
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 0) && Buttons[0].state != 2) menu_page = 1;
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 2) && Buttons[2].state != 2)
                     {
                         SaveWorld();
                         afk = FALSE;
@@ -2935,28 +3747,28 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
                 else
                 {
-                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 0))
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 4 && Buttons[4].state != 2))
                     {
                         worldsizex = 128;
                         worldsizey = 128;
                         menu_page = 0;
                         GenerateNewWorld();
                     }
-                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 1))
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 5) && Buttons[5].state != 2)
                     {
                         worldsizex = 256;
                         worldsizey = 256;
                         menu_page = 0;
                         GenerateNewWorld();
                     }
-                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 2))
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 6 && Buttons[6].state != 2))
                     {
                         worldsizex = 512;
                         worldsizey = 512;
                         menu_page = 0;
                         GenerateNewWorld();
                     }
-                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 3))
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 7) && Buttons[7].state != 2)
                     {
                         menu_page = 0;
                     }
@@ -2999,8 +3811,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 for(int i = 0; i < 10; i++)
                 {
-                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), i)) Buttons[i].state = 1;
-                    else Buttons[i].state = 0;
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), i) && Buttons[i].state != 2) Buttons[i].state = 1;
+                    else if(Buttons[i].state != 2) Buttons[i].state = 0;
                 }
             }
         }

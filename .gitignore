@@ -1,2 +1,8 @@
 \saves
-\bin\Debug\saves
+\bin\Debug\client\saves
+world
+\bin\Debug\server\world
+server.properties
+\bin\Debug\server\server.properties
+server.dat
+\bin\Debug\client\server.dat

@@ -166,3 +166,42 @@
 	<unistd.h>
 	<unixio.h>
 
+1612461317 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\blocks.c
+	"blocks.h"
+
+1612461317 d:\Документы\Мои проекты\opencraft\src\opencraft\client\blocks.h
+
+1613233669 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.c
+	<GL/gl.h>
+	"camera.h"
+	<windows.h>
+	<math.h>
+
+1613303663 d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.h
+	<windows.h>
+
+1613319602 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
+	"../../libs/stb_image/stb_image.h"
+	"../../libs/zlib/zlib.h"
+	"blocks.h"
+	<windows.h>
+	<direct.h>
+	<gl/glu.h>
+	<io.h>
+	<sys/types.h>
+	<sys/stat.h>
+	<time.h>
+	<winsock2.h>
+	<pthread.h>
+	"camera.h"
+
+1612520291 d:\Документы\Мои проекты\opencraft\src\opencraft\world.h
+
+1612520069 d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.h
+
+1612519995 source:d:\Документы\Мои проекты\opencraft\src\opencraft\world.c
+	<windows.h>
+	"world.h"
+	"client/main.h"
+	"client/camera.h"
+

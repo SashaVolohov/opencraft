@@ -7,7 +7,7 @@
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="Debug">
-				<Option output="bin/Debug/Opencraft" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Debug/client/Opencraft" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
 				<Option type="0" />
 				<Option compiler="gcc" />
@@ -16,7 +16,7 @@
 				</Compiler>
 			</Target>
 			<Target title="Release">
-				<Option output="bin/Release/Opencraft" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Release/client/Opencraft" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="0" />
 				<Option compiler="gcc" />
@@ -37,17 +37,18 @@
 			<Add library="glu32" />
 			<Add library="gdi32" />
 			<Add library="lib/libz.a" />
+			<Add library="C:/Program Files/CodeBlocks/MinGW/lib/libwsock32.a" />
 		</Linker>
 		<Unit filename="src/libs/stb_image/stb_image.h" />
-		<Unit filename="src/opencraft/blocks.c">
+		<Unit filename="src/opencraft/client/blocks.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/opencraft/blocks.h" />
-		<Unit filename="src/opencraft/camera.c">
+		<Unit filename="src/opencraft/client/blocks.h" />
+		<Unit filename="src/opencraft/client/camera.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/opencraft/camera.h" />
-		<Unit filename="src/opencraft/main.c">
+		<Unit filename="src/opencraft/client/camera.h" />
+		<Unit filename="src/opencraft/client/main.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Extensions>
