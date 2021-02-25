@@ -320,25 +320,13 @@ BOOL server_loaded = FALSE;
 float old_x, old_y, old_z, old_Xrot, old_Zrot;
 
 float chat_enter[] = {0,0, 1,0, 1,24, 0,24};
+
+char english_chars[] = {'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'z', 'x', 'c', 'v', 'b', 'n', 'm'};
+char russian_chars[] = {'Й', 'Ц', 'У', 'К', 'Е', 'Н', 'Г', 'Ш', 'Щ', 'З', 'Х', 'Ъ', 'Ф', 'Ы', 'В', 'А', 'П', 'Р', 'О', 'Л', 'Д', 'Ж', 'Э', 'Я', 'Ч', 'С', 'М', 'И', 'Т', 'Ь', 'Б', 'Ю', 'Ё', 'Й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х', 'ъ', 'ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж', 'э', 'я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю', 'ё'};
+char other_chars[] = {'`', '~', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '=', '\\', '_', '+', '|', '\t', '{', '}', '[', ']', ';', ':', '\'', '"', ',', '<', '.', '>', '/', '?'};
+
 BOOL chat_open = FALSE;
 char chat_string[256];
-int chat_size = 0;
-BOOL show_chat_cursor = FALSE;
-
-char nickname[32];
-typedef struct {
-    char text[512];
-    BOOL dVisible;
-} SChat;
-
-SChat chat[10];
-int chat_max = 0;
-
-float lastTimeChat = 0.0f;
-
-float nickname_vertex[] = {0,0,0, 0.3,0,0, 0.3,0,0.3, 0, 0, 0.3};
-
-BOOL F1_12_pressed = FALSE;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -855,7 +843,6 @@ void GenerateNewWorld()
         }
     }
     cursorShow = FALSE;
-    SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
     while (ShowCursor(FALSE) >= 0);
     afk = FALSE;
     SaveWorld();
@@ -1122,7 +1109,6 @@ void Game_Init()
     if(on_server == FALSE)
     {
         cursorShow = FALSE;
-        SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
         while (ShowCursor(FALSE) >= 0);
     }
 }
@@ -1477,36 +1463,16 @@ void Game_Show()
             if(camera.x + 9 < Entities[j].x || camera.x - 9 > Entities[j].x || camera.y + 9 < Entities[j].y || camera.y - 9 > Entities[j].y || camera.z + 9 < Entities[j].z || camera.z - 9 > Entities[j].z) continue;
             if(Entities[j].entity_id == 1)
             {
+                glVertexPointer(3, GL_FLOAT, 0, entity_man_leg);
+                glNormalPointer(GL_FLOAT, 0, normal);
+                glBindTexture(GL_TEXTURE_2D, man_texture);
+                glNormal3f(0,0,1);
                 glColor3f(0.7, 0.7, 0.7);
                 glPushMatrix();
                     glTranslatef(Entities[j].x, Entities[j].y, Entities[j].z);
-
-                    if(j >= 499)
-                    {
-                        glPushMatrix();
-                        glTranslatef(0.25, 0, 2.3);
-                        glRotatef(camera.Zrot, 0,0,1);
-                        int size_nickname = 0;
-                        for(int q = 0; q < 512; q++)
-                        {
-                            if(Entities[j].nickname[q] == '\0') break;
-                            size_nickname++;
-                        }
-                        float ot = 0.15*size_nickname;
-                        glTranslatef(-ot, 0, 0);
-                        Text_Out3D(Entities[j].nickname);
-                    glPopMatrix();
-                    }
-
                     glRotatef(Entities[j].Zrot, 0,0,1);
-
                     glTranslatef(0, Entities[j].leg_left_c, Entities[j].leg_left_z);
                     glRotatef(Entities[j].leg_left, 1,0,0);
-
-                    glBindTexture(GL_TEXTURE_2D, man_texture);
-                    glVertexPointer(3, GL_FLOAT, 0, entity_man_leg);
-                    glNormalPointer(GL_FLOAT, 0, normal);
-                    glNormal3f(0,0,1);
 
                     glTexCoordPointer(2, GL_FLOAT, 0, man_left_leg_texture);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
@@ -2398,17 +2364,6 @@ void Menu_Show()
         Text_Out(line, 0);
     glPopMatrix();
 
-    for(int c = 0; c < 10; c++)
-    {
-        if(chat[c].dVisible == TRUE) break;
-        glPushMatrix();
-            glTranslatef(5, scrSize.y-39-(15*(c+1)), 0);
-            Text_Out(chat[c].text, 0);
-        glPopMatrix();
-    }
-
-    glColor3f(0.7, 0.7, 0.7);
-
     if(chat_open == TRUE)
     {
         glPushMatrix();
@@ -2426,8 +2381,6 @@ void Menu_Show()
             Text_Out(">", 0);
             glTranslatef(20, 0, 0);
             Text_Out(chat_string, 0);
-            if(chat_size != 0) glTranslatef(10*chat_size, 0, 0);
-            if(show_chat_cursor == TRUE) Text_Out("_", 0);
         glPopMatrix();
     }
 
@@ -2898,7 +2851,6 @@ void WaitMessages()
                 for(int e = 10; e < 512; e++)
                 {
                     if(buff[e] == ' ' && now == 6) break;
-                    if(buff[e] == '\0') break;
                     if(buff[e] == ' ')
                     {
                         now++;
@@ -2931,7 +2883,6 @@ void WaitMessages()
             {
                 server_loaded = TRUE;
                 cursorShow = FALSE;
-                SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                 while (ShowCursor(FALSE) >= 0);
             }
             else if(buff[4] == 'g' && buff[14] == 'n')
@@ -2962,7 +2913,6 @@ void WaitMessages()
                 char Xrot_t[10];
                 char Zrot_t[10];
                 char id_t[10];
-                char nicknamet[512];
                 int now = 0;
                 int cnt = 0;
                 for(int iw = 0; iw < 10; iw++)
@@ -2978,7 +2928,7 @@ void WaitMessages()
                 cnt = 0;
                 for(int e = 13; e < 512; e++)
                 {
-                    if(buff[e] == ' ' && now == 6 || buff[e] == '\0') break;
+                    if(buff[e] == ' ' && now == 5 || buff[e] == '\0') break;
                     if(buff[e] == ' ')
                     {
                         now++;
@@ -2990,8 +2940,7 @@ void WaitMessages()
                     else if(now == 2) z_t[cnt] = buff[e];
                     else if(now == 3) Xrot_t[cnt] = buff[e];
                     else if(now == 4) Zrot_t[cnt] = buff[e];
-                    else if(now == 5) id_t[cnt] = buff[e];
-                    else nicknamet[cnt] = buff[e];
+                    else id_t[cnt] = buff[e];
                     cnt++;
                 }
                 x_f = atof(x_t);
@@ -3000,50 +2949,12 @@ void WaitMessages()
                 Xrot_f = atof(Xrot_t);
                 Zrot_f = atof(Zrot_t);
                 id_i = atoi(id_t);
-                Entities[499+id_i].x = x_f;
-                Entities[499+id_i].y = y_f;
-                Entities[499+id_i].z = z_f;
-                Entities[499+id_i].Xrot = Xrot_f;
-                Entities[499+id_i].Zrot = Zrot_f;
-                Entities[499+id_i].entity_id = 1;
-                strcpy(Entities[499+id_i].nickname, nicknamet);
-            }
-            else if(buff[4] == 'g' && buff[15] == 'e')
-            {
-                for(int iw = 0; iw < 512; iw++)
-                {
-                    buff[iw] = 0;
-                }
-                sprintf(buff, "ops nickname %s", nickname);
-                if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
-                {
-                    server_error = TRUE;
-                    sprintf(ser_error_text, "Неизвестная ошибка");
-                }
-            }
-            else if(buff[4] == 'c' && buff[15] == 'e')
-            {
-                char chat_msg[512];
-                int cnt = 0;
-                for(int ie = 17; ie < 512; ie++)
-                {
-                    if(buff[ie] == '\0')
-                    {
-                        chat_msg[cnt] = '\0';
-                        break;
-                    }
-                    chat_msg[cnt] = buff[ie];
-                    cnt++;
-                }
-                ChatUpdate();
-                strcpy(chat[0].text, chat_msg);
-                chat_max++;
-                lastTimeChat = GetTickCount() * 0.001f;
-                chat[0].dVisible = FALSE;
-                for(int q = chat_max; q >= 0; q--)
-                {
-                    chat[q].dVisible = FALSE;
-                }
+                Entities[500+id_i].x = x_f;
+                Entities[500+id_i].y = y_f;
+                Entities[500+id_i].z = z_f;
+                Entities[500+id_i].Xrot = Xrot_f;
+                Entities[500+id_i].Zrot = Zrot_f;
+                Entities[500+id_i].entity_id = 1;
             }
         }
     }
@@ -3065,52 +2976,15 @@ void SendCameraPos()
     }
 }
 
-void ChatUpdate()
+void ChatWrite()
 {
-    for(int i = 0; i < 512; i++)
+    char k;
+    while(chat_open)
     {
-        chat[9].text[i] = 0;
+        k = getch();
+        //sprintf(chat_string, "%s%s", chat_string, k);
     }
-    for(int q = 9; q >= 0; q--)
-    {
-        strcpy(chat[q].text, chat[q-1].text);
-    }
-    for(int i = 0; i < 512; i++)
-    {
-        chat[0].text[i] = 0;
-    }
-}
-
-void Text_Out3D(char *text)
-{
-    glPushMatrix();
-        glBindTexture(GL_TEXTURE_2D, ascii_texture);
-        glVertexPointer(3, GL_FLOAT, 0, nickname_vertex);
-        glTexCoordPointer(2, GL_FLOAT, 0, rectTex);
-        glColor3f(1, 1, 1);
-
-        static float charSize = 1/16.0;
-        while(*text)
-        {
-            char c = *text;
-            int y = c >> 4;
-            int x = c & 0b1111;
-            struct {float left, right, top, bottom} rct;
-            rct.left = x * charSize;
-            rct.right = rct.left + charSize;
-            rct.top = y * charSize;
-            rct.bottom = rct.top + charSize;
-
-            rectTex[0] = rectTex[6] = rct.left;
-            rectTex[2] = rectTex[4] = rct.right;
-            rectTex[1] = rectTex[3] = rct.bottom;
-            rectTex[5] = rectTex[7] = rct.top;
-
-            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-            text++;
-            glTranslatef(0.3,0,0);
-        }
-    glPopMatrix();
+    return 0;
 }
 
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
@@ -3218,11 +3092,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     else if(strcmp(argument, "port") == 0)
                     {
                         server.port = atoi(value);
-                    }
-                    else if(strcmp(argument, "nickname") == 0)
-                    {
-                        if(strlen(value) <= 32) strcpy(nickname, value);
-                        else sprintf(nickname, "Man");
                     }
                     exit = TRUE;
                 }
@@ -3826,6 +3695,17 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         if(GetKeyState('T') < 0 && afk == FALSE && chat_open == FALSE)
                         {
                             chat_open = TRUE;
+                            pthread_t thread;
+                            int status;
+                            int status_addr;
+
+                            status = pthread_create(&thread, NULL, ChatWrite, NULL);
+
+                            if(status != 0)
+                            {
+                                server_error = TRUE;
+                                sprintf(ser_error_text, "Ошибка создания потока");
+                            }
                             cursorShow = TRUE;
                             while (ShowCursor(TRUE) <= 0);
                         }
@@ -3851,26 +3731,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     lastTimeLM = currentTimeLM;
                     lbutton_timer = FALSE;
                 }
-
-                static float lastTimec = 0.0f;
-                float currentTimec = GetTickCount() * 0.001f;
-                if(currentTimec - lastTimec > 0.5f)
-                {
-                    lastTimec = currentTimec;
-                    show_chat_cursor = !show_chat_cursor;
-                }
-
-                float currentTimechat = GetTickCount() * 0.001f;
-                if(currentTimechat - lastTimeChat > 10.0f)
-                {
-                    lastTimeChat = currentTimechat;
-                    if(chat_max >= 0)
-                    {
-                        chat[chat_max].dVisible = TRUE;
-                        chat_max--;
-                    }
-                }
-
                 if(GetKeyState(VK_LBUTTON) < 0 && lbutton_timer == FALSE)
                 {
                     if(afk == FALSE && chat_open == FALSE)
@@ -3935,14 +3795,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         SaveWorld();
                         afk = FALSE;
                         cursorShow = FALSE;
-                        SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
                     }
                     if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 3))
                     {
                         afk = FALSE;
                         cursorShow = FALSE;
-                        SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
                     }
                 }
@@ -4000,91 +3858,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         chat_open = FALSE;
                         cursorShow = FALSE;
-                        SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
                     }
                     else if(afk == TRUE)
                     {
                         afk = FALSE;
                         cursorShow = FALSE;
-                        SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
                     }
                 }
-            }
-            if(wParam == VK_F1 || wParam == VK_F2 || wParam == VK_F3 || wParam == VK_F4 || wParam == VK_F5 || wParam == VK_F6 || wParam == VK_F7 || wParam == VK_F8 || wParam == VK_F9 || wParam == VK_F10 || wParam == VK_F11 || wParam == VK_F12) F1_12_pressed = TRUE;
-        }
-
-        case WM_CHAR:
-        {
-            if(wParam == VK_SHIFT || wParam == VK_CAPITAL) return 0;
-            if(wParam == VK_UP || wParam == VK_RIGHT || wParam == VK_LEFT || wParam == VK_DOWN) return 0;
-            if(wParam == VK_CONTROL) return 0;
-            if(wParam == VK_DELETE) return 0;
-            if(wParam == VK_INSERT) return 0;
-            if(wParam == VK_PRIOR || wParam == VK_NEXT) return 0;
-            if(wParam == VK_CANCEL || wParam == VK_TAB || wParam == VK_CLEAR) return 0;
-            if(wParam == VK_SHIFT || wParam == VK_MENU || wParam == VK_PAUSE) return 0;
-            if(wParam == VK_END || wParam == VK_HOME || wParam == VK_SELECT) return 0;
-            if(wParam == VK_SNAPSHOT || wParam == VK_EXECUTE || wParam == VK_HELP) return 0;
-            if(wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_APPS) return 0;
-            if(wParam == VK_NUMLOCK || wParam == VK_SCROLL || wParam == VK_LSHIFT || wParam == VK_RSHIFT || wParam == VK_LCONTROL || wParam == VK_RCONTROL) return 0;
-            if(F1_12_pressed)
-            {
-                F1_12_pressed = FALSE;
-                return 0;
-            }
-            static BOOL repeat_time = FALSE;
-            if(chat_open == TRUE)
-            {
-                if(repeat_time == TRUE)
-                {
-                    if(wParam == VK_BACK)
-                    {
-                        if(chat_size > 0)
-                        {
-                            chat_size--;
-                            chat_string[chat_size] = '\0';
-                        }
-                        repeat_time = FALSE;
-                        return 0;
-                    }
-                    if(wParam == VK_RETURN)
-                    {
-                        char buff[512];
-                        if(chat_size > 0)
-                        {
-                            chat_open = FALSE;
-                            cursorShow = FALSE;
-                            SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
-                            while (ShowCursor(FALSE) >= 0);
-                            for(int iw = 0; iw < 512; iw++)
-                            {
-                                buff[iw] = 0;
-                            }
-                            sprintf(buff, "ops chat %s", chat_string);
-                            if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
-                            {
-                                server_error = TRUE;
-                                sprintf(ser_error_text, "Неизвестная ошибка");
-                            }
-                            for(int iw = 0; iw < 512; iw++)
-                            {
-                                chat_string[iw] = 0;
-                            }
-                            chat_size = 0;
-                        }
-                        repeat_time = FALSE;
-                        return 0;
-                    }
-                    if(chat_size < 70)
-                    {
-                        chat_string[chat_size] = wParam;
-                        chat_size++;
-                    }
-                    repeat_time = FALSE;
-                }
-                else repeat_time = TRUE;
             }
         }
 

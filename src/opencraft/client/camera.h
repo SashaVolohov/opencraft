@@ -25,6 +25,7 @@ typedef struct {
     int jump_tmp;
     float z_in_jump;
     int jump_down;
+    char nickname[512];
 } entity;
 
 typedef struct {

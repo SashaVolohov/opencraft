@@ -65,6 +65,7 @@ typedef struct {
     int new_len;
     float x, y, z, Xrot, Zrot;
     BOOL active;
+    char nickname[32];
 } SPlayer;
 
 SPlayer Player[1001];
@@ -869,7 +870,7 @@ void WaitSends(int playerid)
         }
         if(SOCKET_ERROR == (actual_len = recv(Player[playerid].sock, (char*) &buff, 512, 0)))
         {
-            sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+            sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
             printText(buff, FALSE);
             Player[playerid].active = FALSE;
             closesocket(Player[playerid].sock);
@@ -883,11 +884,12 @@ void WaitSends(int playerid)
                 sprintf(buff, "ops server_name %s", server.server_name);
                 if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                 {
-                    sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                     printText(buff, FALSE);
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
                     cnt_players--;
+                    return 0;
                 }
             }
             else if(buff[4] == 'g' && buff[11] == 'd')
@@ -895,11 +897,12 @@ void WaitSends(int playerid)
                 sprintf(buff, "ops motd %s", server.motd);
                 if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                 {
-                    sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                     printText(buff, FALSE);
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
                     cnt_players--;
+                    return 0;
                 }
             }
             else if(buff[4] == 'g' && buff[16] == 'e')
@@ -907,11 +910,12 @@ void WaitSends(int playerid)
                 sprintf(buff, "ops worldsize %d", worldsizex);
                 if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                 {
-                    sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                     printText(buff, FALSE);
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
                     cnt_players--;
+                    return 0;
                 }
             }
             else if(buff[4] == 'g' && buff[12] == 'd')
@@ -936,11 +940,12 @@ void WaitSends(int playerid)
                             sprintf(buff, "ops set_block %d %d %d %d", x, y, z, block_id);
                             if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                             {
-                                sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                                sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                                 printText(buff, FALSE);
                                 Player[playerid].active = FALSE;
                                 closesocket(Player[playerid].sock);
                                 cnt_players--;
+                                return 0;
                             }
                         }
                     }
@@ -953,11 +958,12 @@ void WaitSends(int playerid)
                 sprintf(buff, "ops world_transmitted");
                 if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                 {
-                    sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                     printText(buff, FALSE);
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
                     cnt_players--;
+                    return 0;
                 }
             }
             else if(buff[4] == 'g' && buff[12] == 'n')
@@ -969,11 +975,12 @@ void WaitSends(int playerid)
                 sprintf(buff, "ops spawn %f %f %f %f %f", spawn.x, spawn.y, spawn.z, spawn.Xrot, spawn.Zrot);
                 if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                 {
-                    sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                     printText(buff, FALSE);
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
                     cnt_players--;
+                    return 0;
                 }
             }
             else if(buff[4] == 'g' && buff[11] == 's')
@@ -989,11 +996,12 @@ void WaitSends(int playerid)
                     printf("     %s\n", buff);
                     if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                     {
-                        sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                        sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                         printText(buff, FALSE);
                         Player[playerid].active = FALSE;
                         closesocket(Player[playerid].sock);
                         cnt_players--;
+                        return 0;
                     }
                 }
                 for(int iw = 0; iw < 512; iw++)
@@ -1003,11 +1011,12 @@ void WaitSends(int playerid)
                 sprintf(buff, "ops mobs_translated");
                 if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                 {
-                    sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                     printText(buff, FALSE);
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
                     cnt_players--;
+                    return 0;
                 }
             }
             else if(buff[4] == 'v' && buff[10] == 'n')
@@ -1037,6 +1046,7 @@ void WaitSends(int playerid)
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
                     cnt_players--;
+                    return 0;
                 }
             }
             else if(buff[4] == 's' && buff[11] == 'd')
@@ -1094,10 +1104,10 @@ void WaitSends(int playerid)
                     {
                         buff[iw] = 0;
                     }
-                    sprintf(buff, "ops setcoord %f %f %f %f %f %d", x_f, y_f, z_f, Xrot_f, Zrot_f, playerid);
+                    sprintf(buff, "ops setcoord %f %f %f %f %f %d %s", x_f, y_f, z_f, Xrot_f, Zrot_f, playerid, Player[playerid].nickname);
                     if(SOCKET_ERROR == (send(Player[qwe].sock, &buff, sizeof(buff), 0)))
                     {
-                        sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                        sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                         printText(buff, FALSE);
                         Player[playerid].active = FALSE;
                         closesocket(Player[playerid].sock);
@@ -1159,7 +1169,7 @@ void WaitSends(int playerid)
                     sprintf(buff, "ops set_block %d %d %d %d", x_i, y_i, z_i, block_i);
                     if(SOCKET_ERROR == (send(Player[y].sock, &buff, sizeof(buff), 0)))
                     {
-                        sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                        sprintf(buff, "%s покинул игру\n\0", Player[y].nickname);
                         printText(buff, FALSE);
                         Player[playerid].active = FALSE;
                         closesocket(Player[playerid].sock);
@@ -1187,6 +1197,55 @@ void WaitSends(int playerid)
                 {
                     UpdateChunk(chunkx, chunky+1);
                     SendChunk(chunkx, chunky+1);
+                }
+            }
+            else if(buff[4] == 'n' && buff[11] == 'e')
+            {
+                int cnt = 0;
+                for(int ie = 13; ie < 512; ie++)
+                {
+                    if(buff[ie] == '\0')
+                    {
+                        Player[playerid].nickname[cnt] = '\0';
+                        break;
+                    }
+                    Player[playerid].nickname[cnt] = buff[ie];
+                    cnt++;
+                }
+                char buff[512];
+                sprintf(buff, "%s присоединился к игре\n\0", Player[playerid].nickname);
+                printText(buff, FALSE);
+            }
+            else if(buff[4] == 'c' && buff[7] == 't')
+            {
+                char chat_msg[512];
+                int cnt = 0;
+                for(int ie = 9; ie < 512; ie++)
+                {
+                    if(buff[ie] == '\0')
+                    {
+                        chat_msg[cnt] = '\0';
+                        break;
+                    }
+                    chat_msg[cnt] = buff[ie];
+                    cnt++;
+                }
+                for(int q = 0; q < server.max_players; q++)
+                {
+                    if(Player[q].active == FALSE) continue;
+                    for(int iw = 0; iw < 512; iw++)
+                    {
+                        buff[iw] = 0;
+                    }
+                    sprintf(buff, "ops chat_message %s:%s", Player[playerid].nickname, chat_msg);
+                    if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0)))
+                    {
+                        sprintf(buff, "%s покинул игру\n\0", Player[q].nickname);
+                        printText(buff, FALSE);
+                        Player[playerid].active = FALSE;
+                        closesocket(Player[playerid].sock);
+                        cnt_players--;
+                    }
                 }
             }
         }
@@ -1232,9 +1291,6 @@ void WaitMessages()
             }
             else
             {
-                char buff[512];
-                sprintf(buff, "Игрок с ID %d подключился к игре\n\0", playerid);
-                printText(buff, FALSE);
                 cnt_players++;
                 Player[playerid].active = TRUE;
                 pthread_t thread;
@@ -1248,6 +1304,7 @@ void WaitMessages()
                     sprintf(messages, "Ошибка инициализации потока. Код ошибки: %d\n", status);
                     printText(messages, TRUE);
                 }
+                char buff[512];
                 for(int iw = 0; iw < 512; iw++)
                 {
                     buff[iw] = 0;
@@ -1260,6 +1317,21 @@ void WaitMessages()
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
                     cnt_players--;
+                    return 0;
+                }
+                for(int iw = 0; iw < 512; iw++)
+                {
+                    buff[iw] = 0;
+                }
+                sprintf(buff, "ops get_nickname");
+                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                {
+                    sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                    printText(buff, FALSE);
+                    Player[playerid].active = FALSE;
+                    closesocket(Player[playerid].sock);
+                    cnt_players--;
+                    return 0;
                 }
                 for(int qwe = 0; qwe < server.max_players; qwe++)
                 {
@@ -1270,14 +1342,15 @@ void WaitMessages()
                     {
                         buff[iw] = 0;
                     }
-                    sprintf(buff, "ops setcoord %f %f %f %f %f %d", Player[qwe].x, Player[qwe].y, Player[qwe].z, Player[qwe].Xrot, Player[qwe].Zrot, qwe);
+                    sprintf(buff, "ops setcoord %f %f %f %f %f %d %s", Player[qwe].x, Player[qwe].y, Player[qwe].z, Player[qwe].Xrot, Player[qwe].Zrot, qwe, Player[qwe].nickname);
                     if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                     {
-                        sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                        sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                         printText(buff, FALSE);
                         Player[playerid].active = FALSE;
                         closesocket(Player[playerid].sock);
                         cnt_players--;
+                        return 0;
                     }
                 }
             }
@@ -1523,7 +1596,7 @@ void EntityAI(int j)
         sprintf(buff, "ops set_mob_coord %f %f %f %f %f %d %d", Entities[j].x, Entities[j].y, Entities[j].z, Entities[j].Xrot, Entities[j].Zrot, Entities[j].entity_id, j);
         if(SOCKET_ERROR == (send(Player[we].sock, &buff, sizeof(buff), 0)))
         {
-            sprintf(buff, "Игрок с ID %d покинул игру\n\0", we);
+            sprintf(buff, "%s покинул игру\n\0", Player[we].nickname);
             printText(buff, FALSE);
             Player[we].active = FALSE;
             closesocket(Player[we].sock);
@@ -1551,11 +1624,12 @@ void SendChunk(int chunkx, int chunky)
             sprintf(buff, "ops set_block %d %d %d %d", x, y, z, block_id);
             if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
             {
-                sprintf(buff, "Игрок с ID %d покинул игру\n\0", playerid);
+                sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
                 printText(buff, FALSE);
                 Player[playerid].active = FALSE;
                 closesocket(Player[playerid].sock);
                 cnt_players--;
+                return 0;
             }
         }
     }
