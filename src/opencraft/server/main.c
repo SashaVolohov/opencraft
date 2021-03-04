@@ -648,7 +648,11 @@ void printText(char* text, BOOL is_error)
     if(!is_error) sprintf(texte, "     [%s] %s", f, text);
     else sprintf(texte, "  !  [%s] %s", f, text);
 
-    CharToOem(texte, texte);
+    const DWORD encodedVersion = GetVersion();
+    const DWORD majorVersion = LOBYTE(LOWORD(encodedVersion));
+
+    if((int)majorVersion >= 6) OemToChar(texte, texte);
+    else CharToOem(texte, texte);
 
     printf("%s", texte);
 }
@@ -993,7 +997,6 @@ void WaitSends(int playerid)
                         buff[iw] = 0;
                     }
                     sprintf(buff, "ops set_mob_coord %f %f %f %f %f %d %d", Entities[e].x, Entities[e].y, Entities[e].z, Entities[e].Xrot, Entities[e].Zrot, Entities[e].entity_id, e);
-                    printf("     %s\n", buff);
                     if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
                     {
                         sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
@@ -1215,6 +1218,17 @@ void WaitSends(int playerid)
                 char buff[512];
                 sprintf(buff, "%s присоединился к игре\n\0", Player[playerid].nickname);
                 printText(buff, FALSE);
+                if(isPlayerBanned(playerid))
+                {
+                    sprintf(buff, "ops banned");
+                    send(Player[playerid].sock, &buff, sizeof(buff), 0);
+                    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                    printText(buff, FALSE);
+                    Player[playerid].active = FALSE;
+                    closesocket(Player[playerid].sock);
+                    cnt_players--;
+                    return 0;
+                }
             }
             else if(buff[4] == 'c' && buff[7] == 't')
             {
@@ -1230,21 +1244,217 @@ void WaitSends(int playerid)
                     chat_msg[cnt] = buff[ie];
                     cnt++;
                 }
-                for(int q = 0; q < server.max_players; q++)
+                if(chat_msg[0] == '/')
                 {
-                    if(Player[q].active == FALSE) continue;
-                    for(int iw = 0; iw < 512; iw++)
+                    int cnt = 0;
+                    char cmd[512];
+                    char arg[512];
+                    for(int ytr = 0; ytr < 512; ytr++)
                     {
-                        buff[iw] = 0;
+                        cmd[ytr] = 0;
+                        arg[ytr] = 0;
                     }
-                    sprintf(buff, "ops chat_message %s:%s", Player[playerid].nickname, chat_msg);
-                    if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0)))
+                    for(int ie = 0; ie < 512; ie++)
                     {
-                        sprintf(buff, "%s покинул игру\n\0", Player[q].nickname);
-                        printText(buff, FALSE);
-                        Player[playerid].active = FALSE;
-                        closesocket(Player[playerid].sock);
-                        cnt_players--;
+                        if(chat_msg[ie] == '\0') break;
+                        if(chat_msg[ie] == ' ')
+                        {
+                            cnt = 0;
+                            for(int iw = ie+1; iw < 512; iw++)
+                            {
+                                if(buff[iw] == '\0') break;
+                                arg[cnt] = chat_msg[iw];
+                                cnt++;
+                            }
+                            break;
+                        }
+                        cmd[cnt] = chat_msg[ie];
+                        cnt++;
+                    }
+                    if(strcmp(cmd, "/ban") == 0)
+                    {
+                        if(!isPlayerOP(playerid))
+                        {
+                            sprintf(buff, "ops chat_message Извините, но Вы не являетесь администратором этого сервера.");
+                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                            {
+                                sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                printText(buff, FALSE);
+                                Player[playerid].active = FALSE;
+                                closesocket(Player[playerid].sock);
+                                cnt_players--;
+                            }
+                        }
+                        else
+                        {
+                            for(int qwe = 0; qwe < server.max_players; qwe++)
+                            {
+                                if(strcmp(Player[qwe].nickname, arg) == 0)
+                                {
+                                    if(qwe == playerid)
+                                    {
+                                        sprintf(buff, "ops chat_message Вы не можете забанить самого себя.");
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                                        {
+                                            sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                            printText(buff, FALSE);
+                                            Player[playerid].active = FALSE;
+                                            closesocket(Player[playerid].sock);
+                                            cnt_players--;
+                                        }
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        ban(qwe);
+                                        sprintf(buff, "ops chat_message Вы забанили игрока %s", Player[qwe].nickname);
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                                        {
+                                            sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                            printText(buff, FALSE);
+                                            Player[playerid].active = FALSE;
+                                            closesocket(Player[playerid].sock);
+                                            cnt_players--;
+                                        }
+                                    }
+                                }
+                                else if(qwe == server.max_players-1)
+                                {
+                                    sprintf(buff, "ops chat_message Игрока с таким ником нет в сети", Player[qwe].nickname);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                                    {
+                                        sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                        printText(buff, FALSE);
+                                        Player[playerid].active = FALSE;
+                                        closesocket(Player[playerid].sock);
+                                        cnt_players--;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(strcmp(cmd, "/kick") == 0)
+                    {
+                        if(!isPlayerOP(playerid))
+                        {
+                            sprintf(buff, "ops chat_message Извините, но Вы не являетесь администратором этого сервера.");
+                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                            {
+                                sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                printText(buff, FALSE);
+                                Player[playerid].active = FALSE;
+                                closesocket(Player[playerid].sock);
+                                cnt_players--;
+                            }
+                        }
+                        else
+                        {
+                            for(int qwe = 0; qwe < server.max_players; qwe++)
+                            {
+                                if(strcmp(Player[qwe].nickname, arg) == 0)
+                                {
+                                    if(qwe == playerid)
+                                    {
+                                        sprintf(buff, "ops chat_message Вы не можете кикнуть самого себя.");
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                                        {
+                                            sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                            printText(buff, FALSE);
+                                            Player[playerid].active = FALSE;
+                                            closesocket(Player[playerid].sock);
+                                            cnt_players--;
+                                        }
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        sprintf(buff, "ops chat_message Вы кикнули игрока %s", Player[qwe].nickname);
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                                        {
+                                            sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                            printText(buff, FALSE);
+                                            Player[playerid].active = FALSE;
+                                            closesocket(Player[playerid].sock);
+                                            cnt_players--;
+                                        }
+                                        sprintf(buff, "ops kicked");
+                                        send(Player[qwe].sock, &buff, sizeof(buff), 0);
+                                        sprintf(buff, "%s покинул игру\n\0", Player[qwe].nickname);
+                                        printText(buff, FALSE);
+                                        Player[qwe].active = FALSE;
+                                        closesocket(Player[qwe].sock);
+                                        cnt_players--;
+                                    }
+                                }
+                                else if(qwe == server.max_players-1)
+                                {
+                                    sprintf(buff, "ops chat_message Игрока с таким ником нет в сети", Player[qwe].nickname);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                                    {
+                                        sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                        printText(buff, FALSE);
+                                        Player[playerid].active = FALSE;
+                                        closesocket(Player[playerid].sock);
+                                        cnt_players--;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(strcmp(cmd, "/broadcast") == 0)
+                    {
+                        if(!isPlayerOP(playerid))
+                        {
+                            sprintf(buff, "ops chat_message Извините, но Вы не являетесь администратором этого сервера.");
+                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0)))
+                            {
+                                sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                                printText(buff, FALSE);
+                                Player[playerid].active = FALSE;
+                                closesocket(Player[playerid].sock);
+                                cnt_players--;
+                            }
+                        }
+                        else
+                        {
+                            for(int q = 0; q < server.max_players; q++)
+                            {
+                                if(Player[q].active == FALSE) continue;
+                                for(int iw = 0; iw < 512; iw++)
+                                {
+                                    buff[iw] = 0;
+                                }
+                                sprintf(buff, "ops chat_message [@] %s", arg);
+                                if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0)))
+                                {
+                                    sprintf(buff, "%s покинул игру\n\0", Player[q].nickname);
+                                    printText(buff, FALSE);
+                                    Player[q].active = FALSE;
+                                    closesocket(Player[q].sock);
+                                    cnt_players--;
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    for(int q = 0; q < server.max_players; q++)
+                    {
+                        if(Player[q].active == FALSE) continue;
+                        for(int iw = 0; iw < 512; iw++)
+                        {
+                            buff[iw] = 0;
+                        }
+                        sprintf(buff, "ops chat_message %s:%s", Player[playerid].nickname, chat_msg);
+                        if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0)))
+                        {
+                            sprintf(buff, "%s покинул игру\n\0", Player[q].nickname);
+                            printText(buff, FALSE);
+                            Player[q].active = FALSE;
+                            closesocket(Player[q].sock);
+                            cnt_players--;
+                        }
                     }
                 }
             }
@@ -1635,6 +1845,88 @@ void SendChunk(int chunkx, int chunky)
     }
 }
 
+BOOL isPlayerOP(int playerid)
+{
+    char playername[32];
+    strcpy(playername, Player[playerid].nickname);
+    FILE *admins;
+
+    char adm[1000];
+
+    admins = fopen("admins.txt", "rt");
+    while(!feof(admins))
+    {
+        for(int wrt = 0; wrt < 1000; wrt++)
+        {
+            adm[wrt] = 0;
+        }
+        fgets(adm, 1000, admins);
+        if(strcmp(Player[playerid].nickname, adm) == 0) return TRUE;
+    }
+    fclose(admins);
+    return FALSE;
+}
+
+void ban(int playerid)
+{
+    FILE *bans;
+    FILE *bans_2;
+    char buff[512];
+
+    char banned[1000];
+
+    bans = fopen("banned.txt", "rt");
+    bans_2 = fopen("banned.txt.tmp", "wt");
+
+    while(!feof(bans))
+    {
+        for(int wrt = 0; wrt < 1000; wrt++)
+        {
+            banned[wrt] = 0;
+        }
+        fgets(banned, 1000, bans);
+        fprintf(bans_2, banned);
+    }
+
+    fclose(bans);
+
+    fprintf(bans_2, "%s\n", Player[playerid].nickname);
+    fclose(bans_2);
+
+    remove("banned.txt");
+    rename("banned.txt.tmp", "banned.txt");
+
+    sprintf(buff, "ops banned");
+    send(Player[playerid].sock, &buff, sizeof(buff), 0);
+    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+    printText(buff, FALSE);
+    Player[playerid].active = FALSE;
+    closesocket(Player[playerid].sock);
+    cnt_players--;
+}
+
+BOOL isPlayerBanned(int playerid)
+{
+    char playername[32];
+    strcpy(playername, Player[playerid].nickname);
+    FILE *bans;
+
+    char banned[1000];
+
+    bans = fopen("banned.txt", "rt");
+    while(!feof(bans))
+    {
+        for(int wrt = 0; wrt < 1000; wrt++)
+        {
+            banned[wrt] = 0;
+        }
+        fgets(banned, 1000, bans);
+        if(strcmp(Player[playerid].nickname, banned) == 0) return TRUE;
+    }
+    fclose(bans);
+    return FALSE;
+}
+
 int main()
 {
     SetConsoleCP(1251);
@@ -1890,6 +2182,20 @@ int main()
     {
         return E_FAIL;
     }
+
+    FILE *admins;
+
+    admins = fopen("admins.txt", "rt");
+
+    if(admins == NULL) creat("admins.txt", S_IREAD|S_IWRITE);
+    else fclose(admins);
+
+    FILE *bans;
+
+    bans = fopen("banned.txt", "rt");
+
+    if(bans == NULL) creat("banned.txt", S_IREAD|S_IWRITE);
+    else fclose(bans);
 
     char messages[100];
     sprintf(messages, "Начат приём сообщений на порту %d\n", server.port);

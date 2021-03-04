@@ -311,6 +311,7 @@ BOOL on_server = FALSE;
 BOOL server_error = FALSE;
 
 char ser_error_text[512];
+char ser_error_text_output[512];
 
 BOOL bQuit = FALSE;
 
@@ -2706,6 +2707,7 @@ void WaitMessages()
         {
             buff[iw] = 0;
         }
+        if(server_error == TRUE) continue;
         if(SOCKET_ERROR == (actual_len = recv(s, (char*) &buff, 512, 0)))
         {
             server_error = TRUE;
@@ -3044,6 +3046,18 @@ void WaitMessages()
                 {
                     chat[q].dVisible = FALSE;
                 }
+            }
+            else if(buff[4] == 'b' && buff[9] == 'd')
+            {
+                server_error = TRUE;
+                sprintf(ser_error_text, "Вы забанены на этом сервере");
+                sprintf(ser_error_text_output, "Вы забанены на этом сервере");
+            }
+            else if(buff[4] == 'k' && buff[9] == 'd')
+            {
+                server_error = TRUE;
+                sprintf(ser_error_text, "Вас кикнул оператор");
+                sprintf(ser_error_text_output, "Вас кикнул оператор");
             }
         }
     }
@@ -3600,10 +3614,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     int size = 0;
                     for(int q = 0; q < 512; q++)
                     {
-                        if(ser_error_text[q] == '\0') break;
+                        if(ser_error_text_output[q] == '\0') break;
                         size++;
                     }
-                    GenMenu_Show(ser_error_text, size+1, 2);
+                    GenMenu_Show(ser_error_text_output, size+1, 2);
                     SwapBuffers(hDC);
                 }
                 else if(server_loaded == FALSE)
@@ -3827,6 +3841,11 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         {
                             chat_open = TRUE;
                             cursorShow = TRUE;
+                            for(int wrt = 0; wrt < 256; wrt++)
+                            {
+                                chat_string[wrt] = 0;
+                            }
+                            chat_size = 0;
                             while (ShowCursor(TRUE) <= 0);
                         }
                         SpritesManage();
@@ -4029,6 +4048,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if(wParam == VK_SNAPSHOT || wParam == VK_EXECUTE || wParam == VK_HELP) return 0;
             if(wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_APPS) return 0;
             if(wParam == VK_NUMLOCK || wParam == VK_SCROLL || wParam == VK_LSHIFT || wParam == VK_RSHIFT || wParam == VK_LCONTROL || wParam == VK_RCONTROL) return 0;
+            printf("%d", wParam);
+            if(wParam == 191)
+            {
+                chat_string[chat_size] = '/';
+                chat_size++;
+                return 0;
+            }
             if(F1_12_pressed)
             {
                 F1_12_pressed = FALSE;
