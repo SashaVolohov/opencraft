@@ -19,7 +19,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.15a"
+#define OPENCRAFT_VERSION "0.0.16a_01"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -330,6 +330,7 @@ char nickname[32];
 typedef struct {
     char text[512];
     BOOL dVisible;
+    BOOL join_message;
 } SChat;
 
 SChat chat[10];
@@ -2404,7 +2405,8 @@ void Menu_Show()
         if(chat[c].dVisible == TRUE) break;
         glPushMatrix();
             glTranslatef(5, scrSize.y-39-(15*(c+1)), 0);
-            Text_Out(chat[c].text, 0);
+            if(!chat[c].join_message) Text_Out(chat[c].text, 0);
+            else Text_Out(chat[c].text, 2);
         glPopMatrix();
     }
 
@@ -2516,7 +2518,8 @@ void Text_Out(char *text, int type)
         glVertexPointer(2, GL_FLOAT, 0, rectCoord);
         glTexCoordPointer(2, GL_FLOAT, 0, rectTex);
         if(type == 0) glColor3f(1, 1, 1);
-        else glColor3f(1, 0, 0);
+        else if(type == 1) glColor3f(1, 0, 0);
+        else glColor3f(1, 1, 0);
 
         static float charSize = 1/16.0;
         while(*text)
@@ -3025,6 +3028,7 @@ void WaitMessages()
             }
             else if(buff[4] == 'c' && buff[15] == 'e')
             {
+                BOOL jm = FALSE;
                 char chat_msg[512];
                 int cnt = 0;
                 for(int ie = 17; ie < 512; ie++)
@@ -3034,11 +3038,17 @@ void WaitMessages()
                         chat_msg[cnt] = '\0';
                         break;
                     }
+                    if(buff[ie] == '~' && buff[ie+1] == 'y')
+                    {
+                        jm = TRUE;
+                        ie += 2;
+                    }
                     chat_msg[cnt] = buff[ie];
                     cnt++;
                 }
                 ChatUpdate();
                 strcpy(chat[0].text, chat_msg);
+                if(jm) chat[0].join_message = TRUE;
                 chat_max++;
                 lastTimeChat = GetTickCount() * 0.001f;
                 chat[0].dVisible = FALSE;
@@ -3085,9 +3095,12 @@ void ChatUpdate()
     {
         chat[9].text[i] = 0;
     }
+    chat[9].join_message = FALSE;
     for(int q = 9; q >= 0; q--)
     {
         strcpy(chat[q].text, chat[q-1].text);
+        if(chat[q-1].join_message) chat[q].join_message = TRUE;
+        chat[q-1].join_message = FALSE;
     }
     for(int i = 0; i < 512; i++)
     {
@@ -4048,7 +4061,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if(wParam == VK_SNAPSHOT || wParam == VK_EXECUTE || wParam == VK_HELP) return 0;
             if(wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_APPS) return 0;
             if(wParam == VK_NUMLOCK || wParam == VK_SCROLL || wParam == VK_LSHIFT || wParam == VK_RSHIFT || wParam == VK_LCONTROL || wParam == VK_RCONTROL) return 0;
-            printf("%d", wParam);
             if(wParam == 191)
             {
                 chat_string[chat_size] = '/';

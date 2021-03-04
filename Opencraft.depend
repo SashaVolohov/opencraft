@@ -180,7 +180,7 @@
 1614096513 d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.h
 	<windows.h>
 
-1614879136 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
+1614883847 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
 	"../../libs/stb_image/stb_image.h"
 	"../../libs/zlib/zlib.h"
 	"blocks.h"
