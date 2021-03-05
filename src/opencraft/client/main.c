@@ -19,7 +19,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.16a_01"
+#define OPENCRAFT_VERSION "0.0.16a_02"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -1372,6 +1372,12 @@ void Game_Show()
                                 if(GetBlockID(x+dcx, y+dcy+1, z) == 0) SetBlock(7, x+dcx, y+dcy+1, z);
                                 if(GetBlockID(x+dcx, y+dcy-1, z) == 0) SetBlock(7, x+dcx, y+dcy-1, z);
                                 if(GetBlockID(x+dcx, y+dcy, z-1) == 0) SetBlock(7, x+dcx, y+dcy, z-1);
+
+                                if(GetBlockID(x+dcx+1, y+dcy, z) == 8) SetBlock(1, x+dcx+1, y+dcy, z);
+                                if(GetBlockID(x+dcx-1, y+dcy, z) == 8) SetBlock(1, x+dcx-1, y+dcy, z);
+                                if(GetBlockID(x+dcx, y+dcy+1, z) == 8) SetBlock(1, x+dcx, y+dcy+1, z);
+                                if(GetBlockID(x+dcx, y+dcy-1, z) == 8) SetBlock(1, x+dcx, y+dcy-1, z);
+                                if(GetBlockID(x+dcx, y+dcy, z-1) == 8) SetBlock(1, x+dcx, y+dcy, z-1);
                             }
                             else if(blocks[world[chunkx][chunky][x][y][z]].type == 4 && world[chunkx][chunky][x][y][z] == 8)
                             {
@@ -4065,6 +4071,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 chat_string[chat_size] = '/';
                 chat_size++;
+                return 0;
+            }
+            if(wParam == 190)
+            {
+                chat_string[chat_size] = '.';
+                chat_size++;
+                return 0;
+            }
+            if(wParam == 254)
+            {
+                chat_string[chat_size-1] = 'þ';
                 return 0;
             }
             if(F1_12_pressed)

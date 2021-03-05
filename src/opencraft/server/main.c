@@ -16,7 +16,7 @@
 #include <conio.h>
 #include <math.h>
 
-#define OPENCRAFT_VERSION "0.0.16a_01"
+#define OPENCRAFT_VERSION "0.0.16a_02"
 
 BOOL bQuit = FALSE;
 
@@ -976,7 +976,7 @@ void WaitSends(int playerid)
                     }
                     sprintf(buff, "ops bad_version");
                     send(Player[playerid].sock, &buff, sizeof(buff), 0);
-                    sprintf(buff, "Игрок с ID %d покинул игру из-за несовместимой версии Opencraft\n\0", playerid);
+                    sprintf(buff, "Игрок с ID %d(%s) покинул игру из-за несовместимой версии Opencraft\n\0", playerid, inet_ntoa(Player[playerid].ca.sin_addr));
                     printText(buff, FALSE);
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
@@ -1135,7 +1135,7 @@ void WaitSends(int playerid)
                     cnt++;
                 }
                 char buff[512];
-                sprintf(buff, "%s присоединился к игре\n\0", Player[playerid].nickname);
+                sprintf(buff, "%s(%s) присоединился к игре\n\0", Player[playerid].nickname, inet_ntoa(Player[playerid].ca.sin_addr));
                 printText(buff, FALSE);
                 for(int q = 0; q < server.max_players; q++)
                 {
@@ -1151,7 +1151,19 @@ void WaitSends(int playerid)
                 {
                     sprintf(buff, "ops banned");
                     send(Player[playerid].sock, &buff, sizeof(buff), 0);
-                    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+                    sprintf(buff, "%s(%s) покинул игру\n\0", Player[playerid].nickname, inet_ntoa(Player[playerid].ca.sin_addr));
+                    printText(buff, FALSE);
+                    Player[playerid].active = FALSE;
+                    closesocket(Player[playerid].sock);
+                    cnt_players--;
+                    kick(playerid);
+                    return 0;
+                }
+                if(isIPBanned(playerid))
+                {
+                    sprintf(buff, "ops banned");
+                    send(Player[playerid].sock, &buff, sizeof(buff), 0);
+                    sprintf(buff, "%s(%s) покинул игру\n\0", Player[playerid].nickname, inet_ntoa(Player[playerid].ca.sin_addr));
                     printText(buff, FALSE);
                     Player[playerid].active = FALSE;
                     closesocket(Player[playerid].sock);
@@ -1260,7 +1272,7 @@ void WaitSends(int playerid)
                                         if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                                         sprintf(buff, "ops kicked");
                                         send(Player[qwe].sock, &buff, sizeof(buff), 0);
-                                        sprintf(buff, "%s покинул игру\n\0", Player[qwe].nickname);
+                                        sprintf(buff, "%s(%s) покинул игру\n\0", Player[qwe].nickname, inet_ntoa(Player[qwe].ca.sin_addr));
                                         printText(buff, FALSE);
                                         Player[qwe].active = FALSE;
                                         closesocket(Player[qwe].sock);
@@ -1294,6 +1306,40 @@ void WaitSends(int playerid)
                                 }
                                 sprintf(buff, "ops chat_message [@] %s", arg);
                                 if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
+                            }
+                        }
+                    }
+                    if(strcmp(cmd, "/banip") == 0)
+                    {
+                        if(!isPlayerOP(playerid))
+                        {
+                            sprintf(buff, "ops chat_message Извините, но Вы не являетесь администратором этого сервера.");
+                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                        }
+                        else
+                        {
+                            for(int qwe = 0; qwe < server.max_players; qwe++)
+                            {
+                                if(strcmp(inet_ntoa(Player[qwe].ca.sin_addr), arg) == 0)
+                                {
+                                    if(qwe == playerid)
+                                    {
+                                        sprintf(buff, "ops chat_message Вы не можете забанить свой IP-адрес.");
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        banip(qwe);
+                                        sprintf(buff, "ops chat_message Вы заблокировали IP адрес %s", arg);
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    }
+                                }
+                                else if(qwe == server.max_players-1)
+                                {
+                                    sprintf(buff, "ops chat_message Игрока с таким IP нет в сети");
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                }
                             }
                         }
                     }
@@ -1713,7 +1759,7 @@ void ban(int playerid)
 
     sprintf(buff, "ops banned");
     send(Player[playerid].sock, &buff, sizeof(buff), 0);
-    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+    sprintf(buff, "%s(%s) покинул игру\n\0", Player[playerid].nickname, inet_ntoa(Player[playerid].ca.sin_addr));
     printText(buff, FALSE);
     Player[playerid].active = FALSE;
     closesocket(Player[playerid].sock);
@@ -1747,7 +1793,7 @@ void kick(int playerid)
 {
     if(Player[playerid].active == FALSE) return;
     char buff[512];
-    sprintf(buff, "%s покинул игру\n\0", Player[playerid].nickname);
+    sprintf(buff, "%s(%s) покинул игру\n\0", Player[playerid].nickname, inet_ntoa(Player[playerid].ca.sin_addr));
     printText(buff, FALSE);
     Player[playerid].active = FALSE;
     closesocket(Player[playerid].sock);
@@ -1764,11 +1810,70 @@ void kick(int playerid)
     }
 }
 
+void banip(int playerid)
+{
+    FILE *bans;
+    FILE *bans_2;
+    char buff[512];
+
+    char banned[1000];
+
+    bans = fopen("banned-ip.txt", "rt");
+    bans_2 = fopen("banned-ip.txt.tmp", "wt");
+
+    while(!feof(bans))
+    {
+        for(int wrt = 0; wrt < 1000; wrt++)
+        {
+            banned[wrt] = 0;
+        }
+        fgets(banned, 1000, bans);
+        fprintf(bans_2, banned);
+    }
+
+    fclose(bans);
+
+    fprintf(bans_2, "%s\n", inet_ntoa(Player[playerid].ca.sin_addr));
+    fclose(bans_2);
+
+    remove("banned-ip.txt");
+    rename("banned-ip.txt.tmp", "banned-ip.txt");
+
+    sprintf(buff, "ops banned");
+    send(Player[playerid].sock, &buff, sizeof(buff), 0);
+    sprintf(buff, "%s(%s) покинул игру\n\0", Player[playerid].nickname, inet_ntoa(Player[playerid].ca.sin_addr));
+    printText(buff, FALSE);
+    Player[playerid].active = FALSE;
+    closesocket(Player[playerid].sock);
+    kick(playerid);
+    cnt_players--;
+}
+
+BOOL isIPBanned(int playerid)
+{
+    FILE *bans;
+
+    char banned[1000];
+
+    bans = fopen("banned-ip.txt", "rt");
+    while(!feof(bans))
+    {
+        for(int wrt = 0; wrt < 1000; wrt++)
+        {
+            banned[wrt] = 0;
+        }
+        fgets(banned, 1000, bans);
+        if(strcmp(inet_ntoa(Player[playerid].ca.sin_addr), banned) == 0) return TRUE;
+    }
+    fclose(bans);
+    return FALSE;
+}
+
 int main()
 {
     SetConsoleCP(1251);
     SetConsoleOutputCP(1251);
-    system("title Opencraft Classic Server 1.1");
+    system("title Opencraft Classic Server 1.2");
     MSG msg;
 
     if(FAILED(WSAStartup(MAKEWORD(1, 1), &ws)))
@@ -2033,6 +2138,13 @@ int main()
 
     if(bans == NULL) creat("banned.txt", S_IREAD|S_IWRITE);
     else fclose(bans);
+
+    FILE *bans_ip;
+
+    bans_ip = fopen("banned-ip.txt", "rt");
+
+    if(bans_ip == NULL) creat("banned-ip.txt", S_IREAD|S_IWRITE);
+    else fclose(bans_ip);
 
     char messages[100];
     sprintf(messages, "Начат приём сообщений на порту %d\n", server.port);
