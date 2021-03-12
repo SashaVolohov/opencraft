@@ -177,12 +177,13 @@
 	<windows.h>
 	<math.h>
 
-1614096513 d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.h
+1615481125 d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.h
 	<windows.h>
 
-1614959979 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
+1615566893 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
 	"../../libs/stb_image/stb_image.h"
 	"../../libs/zlib/zlib.h"
+	"../../libs/curl/curl.h"
 	"blocks.h"
 	<windows.h>
 	<direct.h>
@@ -204,4 +205,46 @@
 	"world.h"
 	"client/main.h"
 	"client/camera.h"
+
+1612239984 d:\Документы\Мои проекты\opencraft\src\libs\curl\curl.h
+	"curlver.h"
+	"system.h"
+	<stdio.h>
+	<limits.h>
+	<osreldate.h>
+	<sys/types.h>
+	<time.h>
+	<winsock2.h>
+	<ws2tcpip.h>
+	<sys/select.h>
+	<sys/socket.h>
+	<sys/time.h>
+	<support/SupportDefs.h>
+	"easy.h"
+	"multi.h"
+	"urlapi.h"
+	"options.h"
+	"typecheck-gcc.h"
+
+1612321410 d:\Документы\Мои проекты\opencraft\src\libs\curl\curlver.h
+
+1611203194 d:\Документы\Мои проекты\opencraft\src\libs\curl\system.h
+	<winsock2.h>
+	<windows.h>
+	<ws2tcpip.h>
+	<sys/types.h>
+	<sys/socket.h>
+	<sys/poll.h>
+
+1611203194 d:\Документы\Мои проекты\opencraft\src\libs\curl\easy.h
+
+1611203194 d:\Документы\Мои проекты\opencraft\src\libs\curl\multi.h
+	"curl.h"
+
+1611203194 d:\Документы\Мои проекты\opencraft\src\libs\curl\urlapi.h
+	"curl.h"
+
+1611203194 d:\Документы\Мои проекты\opencraft\src\libs\curl\options.h
+
+1612149402 d:\Документы\Мои проекты\opencraft\src\libs\curl\typecheck-gcc.h
 

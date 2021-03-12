@@ -16,7 +16,7 @@
 #include <conio.h>
 #include <math.h>
 
-#define OPENCRAFT_VERSION "0.0.16a_02"
+#define OPENCRAFT_VERSION "0.0.17a"
 
 BOOL bQuit = FALSE;
 
@@ -30,6 +30,7 @@ struct SServer{
     char server_name[1000];
     BOOL public;
     char motd[1000];
+    BOOL verify_names;
 } server;
 
 struct SSpawn {
@@ -66,6 +67,8 @@ typedef struct {
     float x, y, z, Xrot, Zrot;
     BOOL active;
     char nickname[32];
+    int cnt_msg;
+    char skin[512];
 } SPlayer;
 
 SPlayer Player[1001];
@@ -795,6 +798,8 @@ void SaveWorld()
     char path[MAX_PATH];
     sprintf(path, "%s\\world", buffer);
     if(!DirectoryExists(path)) mkdir(path);
+    sprintf(path, "%s\\world\\playerdata", buffer);
+    if(!DirectoryExists(path)) mkdir(path);
     FILE *file_spawn;
     FILE *file_world;
     FILE *file_version;
@@ -896,35 +901,46 @@ void WaitSends(int playerid)
             }
             else if(buff[4] == 'g' && buff[12] == 'd')
             {
-                int cx = worldsizex / 16 - 1;
-                int cy = worldsizey / 16 - 1;
-
-                for(int chunky = 0; chunky <= cy; chunky++)
+                if(server.verify_names)
                 {
-                    for(int chunkx = 0; chunkx <= cx; chunkx++)
+                    for(int iw = 0; iw < 512; iw++)
                     {
-                        for(int qwe = 0; qwe < worldTranslatereq[chunkx][chunky]; qwe++)
+                        buff[iw] = 0;
+                    }
+                    sprintf(buff, "ops reqpassword");
+                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                }
+                else
+                {
+                    int cx = worldsizex / 16 - 1;
+                    int cy = worldsizey / 16 - 1;
+
+                    for(int chunky = 0; chunky <= cy; chunky++)
+                    {
+                        for(int chunkx = 0; chunkx <= cx; chunkx++)
                         {
-                            int x = WorldTranslate[chunkx][chunky][qwe].x;
-                            int y = WorldTranslate[chunkx][chunky][qwe].y;
-                            int z = WorldTranslate[chunkx][chunky][qwe].z;
-                            int block_id = WorldTranslate[chunkx][chunky][qwe].block_id;
-                            for(int iw = 0; iw < 512; iw++)
+                            for(int qwe = 0; qwe < worldTranslatereq[chunkx][chunky]; qwe++)
                             {
-                                buff[iw] = 0;
+                                int x = WorldTranslate[chunkx][chunky][qwe].x;
+                                int y = WorldTranslate[chunkx][chunky][qwe].y;
+                                int z = WorldTranslate[chunkx][chunky][qwe].z;
+                                int block_id = WorldTranslate[chunkx][chunky][qwe].block_id;
+                                for(int iw = 0; iw < 512; iw++)
+                                {
+                                    buff[iw] = 0;
+                                }
+                                sprintf(buff, "ops set_block %d %d %d %d", x, y, z, block_id);
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                             }
-                            sprintf(buff, "ops set_block %d %d %d %d", x, y, z, block_id);
-                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                         }
                     }
+                    for(int iw = 0; iw < 512; iw++)
+                    {
+                        buff[iw] = 0;
+                    }
+                    sprintf(buff, "ops world_transmitted");
+                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                 }
-
-                for(int iw = 0; iw < 512; iw++)
-                {
-                    buff[iw] = 0;
-                }
-                sprintf(buff, "ops world_transmitted");
-                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
             }
             else if(buff[4] == 'g' && buff[12] == 'n')
             {
@@ -1034,13 +1050,13 @@ void WaitSends(int playerid)
                 for(int qwe = 0; qwe < server.max_players; qwe++)
                 {
                     if(Player[qwe].active == FALSE) continue;
-                    if(qwe == playerid) continue;
+                    //if(qwe == playerid) continue;
                     char buff[512];
                     for(int iw = 0; iw < 512; iw++)
                     {
                         buff[iw] = 0;
                     }
-                    sprintf(buff, "ops setcoord %f %f %f %f %f %d %s", x_f, y_f, z_f, Xrot_f, Zrot_f, playerid, Player[playerid].nickname);
+                    sprintf(buff, "ops setcoord %f %f %f %f %f %d %s %s", x_f, y_f, z_f, Xrot_f, Zrot_f, playerid, Player[playerid].nickname, Player[playerid].skin);
                     if(SOCKET_ERROR == (send(Player[qwe].sock, &buff, sizeof(buff), 0))) kick(playerid);
                 }
             }
@@ -1343,6 +1359,39 @@ void WaitSends(int playerid)
                             }
                         }
                     }
+                    if(strcmp(cmd, "/setspawn") == 0)
+                    {
+                        if(!isPlayerOP(playerid))
+                        {
+                            sprintf(buff, "ops chat_message Извините, но Вы не являетесь администратором этого сервера.");
+                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                        }
+                        else
+                        {
+                            spawn.x = Player[playerid].x;
+                            spawn.y = Player[playerid].y;
+                            spawn.z = Player[playerid].z;
+                            spawn.Xrot = Player[playerid].Xrot;
+                            spawn.Zrot = Player[playerid].Zrot;
+
+                            for(int q = 0; q < server.max_players; q++)
+                            {
+                                if(Player[q].active == FALSE) continue;
+                                for(int iw = 0; iw < 512; iw++)
+                                {
+                                    buff[iw] = 0;
+                                }
+                                sprintf(buff, "ops spawn %f %f %f %f %f", spawn.x, spawn.y, spawn.z, spawn.Xrot, spawn.Zrot);
+                                if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
+                            }
+                            for(int iw = 0; iw < 512; iw++)
+                            {
+                                buff[iw] = 0;
+                            }
+                            sprintf(buff, "ops chat_message Вы успешно изменили координаты спавна на %d, %d, %d", (int)spawn.x, (int)spawn.y, (int)spawn.z);
+                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                        }
+                    }
                 }
                 else
                 {
@@ -1356,6 +1405,170 @@ void WaitSends(int playerid)
                         sprintf(buff, "ops chat_message %s:%s", Player[playerid].nickname, chat_msg);
                         if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
                     }
+                    Player[playerid].cnt_msg++;
+                }
+            }
+            else if(buff[4] == 'p' && buff[11] == 'd')
+            {
+                TCHAR buffer[MAX_PATH];
+                GetCurrentDirectory(sizeof(buffer), buffer);
+                char path[MAX_PATH];
+                sprintf(path, "%s\\world\\playerdata\\%s.dat", buffer, Player[playerid].nickname);
+
+                FILE* file_player;
+
+                file_player = fopen(path, "rt");
+
+                char pass[512];
+                char pass_file[512];
+
+                int cnt = 0;
+
+                char sp[1000];
+
+                for(int iw = 13; iw < 512; iw++)
+                {
+                    if(buff[iw] == '\0')
+                    {
+                        pass[cnt] = '\0';
+                        break;
+                    }
+                    pass[cnt] = buff[iw];
+                    cnt++;
+                }
+
+                if(file_player == NULL)
+                {
+                    creat(path, S_IREAD|S_IWRITE);
+                    file_player = fopen(path, "wt");
+
+                    fprintf(file_player, "password=%s", pass);
+
+                    fclose(file_player);
+
+                    int cx = worldsizex / 16 - 1;
+                    int cy = worldsizey / 16 - 1;
+
+                    for(int chunky = 0; chunky <= cy; chunky++)
+                    {
+                        for(int chunkx = 0; chunkx <= cx; chunkx++)
+                        {
+                            for(int qwe = 0; qwe < worldTranslatereq[chunkx][chunky]; qwe++)
+                            {
+                                int x = WorldTranslate[chunkx][chunky][qwe].x;
+                                int y = WorldTranslate[chunkx][chunky][qwe].y;
+                                int z = WorldTranslate[chunkx][chunky][qwe].z;
+                                int block_id = WorldTranslate[chunkx][chunky][qwe].block_id;
+                                for(int iw = 0; iw < 512; iw++)
+                                {
+                                    buff[iw] = 0;
+                                }
+                                sprintf(buff, "ops set_block %d %d %d %d", x, y, z, block_id);
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                            }
+                        }
+                    }
+                    for(int iw = 0; iw < 512; iw++)
+                    {
+                        buff[iw] = 0;
+                    }
+                    sprintf(buff, "ops world_transmitted");
+                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                }
+                else
+                {
+                    char argument[1000];
+                    char value[1000];
+                    while(!feof(file_player))
+                    {
+                        fgets(sp, 1000, file_player);
+                        if(sp[0] == '#') continue;
+                        BOOL exit = FALSE;
+                        for(int i = 0; i < 1000; i++)
+                        {
+                            if(sp[i] == '=')
+                            {
+                                for(int iw = 0; iw < 1000; iw++)
+                                {
+                                    argument[iw] = 0;
+                                    value[iw] = 0;
+                                }
+                                for(int iq = 0; iq < i; iq++)
+                                {
+                                    argument[iq] = sp[iq];
+                                }
+                                int cnt = 0;
+                                for(int ie = i+1; ie < 1000; ie++)
+                                {
+                                    if(sp[ie] == '\n') break;
+                                    value[cnt] = sp[ie];
+                                    cnt++;
+                                }
+                                if(strcmp(argument, "password") == 0)
+                                {
+                                    strcpy(pass_file, value);
+                                }
+                                exit = TRUE;
+                            }
+                            if(exit == TRUE) break;
+                        }
+                    }
+                    if(strcmp(pass_file, pass) == 0)
+                    {
+                        int cx = worldsizex / 16 - 1;
+                        int cy = worldsizey / 16 - 1;
+
+                        for(int chunky = 0; chunky <= cy; chunky++)
+                        {
+                            for(int chunkx = 0; chunkx <= cx; chunkx++)
+                            {
+                                for(int qwe = 0; qwe < worldTranslatereq[chunkx][chunky]; qwe++)
+                                {
+                                    int x = WorldTranslate[chunkx][chunky][qwe].x;
+                                    int y = WorldTranslate[chunkx][chunky][qwe].y;
+                                    int z = WorldTranslate[chunkx][chunky][qwe].z;
+                                    int block_id = WorldTranslate[chunkx][chunky][qwe].block_id;
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops set_block %d %d %d %d", x, y, z, block_id);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                }
+                            }
+                        }
+                        for(int iw = 0; iw < 512; iw++)
+                        {
+                            buff[iw] = 0;
+                        }
+                        sprintf(buff, "ops world_transmitted");
+                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                    }
+                    else
+                    {
+                        for(int iw = 0; iw < 512; iw++)
+                        {
+                            buff[iw] = 0;
+                        }
+                        sprintf(buff, "ops bad_password");
+                        send(Player[playerid].sock, &buff, sizeof(buff), 0);
+                        kick(playerid);
+                    }
+                    fclose(file_player);
+                }
+            }
+            else if(buff[4] == 's' && buff[7] == 'n')
+            {
+                int cnt = 0;
+                for(int ie = 9; ie < 512; ie++)
+                {
+                    if(buff[ie] == '\0')
+                    {
+                        Player[playerid].skin[cnt] = '\0';
+                        break;
+                    }
+                    Player[playerid].skin[cnt] = buff[ie];
+                    cnt++;
                 }
             }
         }
@@ -1427,6 +1640,12 @@ void WaitMessages()
                 }
                 sprintf(buff, "ops get_nickname");
                 if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                for(int iw = 0; iw < 512; iw++)
+                {
+                    buff[iw] = 0;
+                }
+                sprintf(buff, "ops get_skin");
+                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                 for(int qwe = 0; qwe < server.max_players; qwe++)
                 {
                     if(Player[qwe].active == FALSE) continue;
@@ -1436,7 +1655,7 @@ void WaitMessages()
                     {
                         buff[iw] = 0;
                     }
-                    sprintf(buff, "ops setcoord %f %f %f %f %f %d %s", Player[qwe].x, Player[qwe].y, Player[qwe].z, Player[qwe].Xrot, Player[qwe].Zrot, qwe, Player[qwe].nickname);
+                    sprintf(buff, "ops setcoord %f %f %f %f %f %d %s %s", Player[qwe].x, Player[qwe].y, Player[qwe].z, Player[qwe].Xrot, Player[qwe].Zrot, qwe, Player[qwe].nickname, Player[qwe].skin);
                     if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                 }
             }
@@ -1807,6 +2026,12 @@ void kick(int playerid)
         }
         sprintf(buff, "ops chat_message ~w%s покинул игру", Player[playerid].nickname);
         if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
+        for(int iw = 0; iw < 512; iw++)
+        {
+            buff[iw] = 0;
+        }
+        sprintf(buff, "ops disconnected %d", playerid);
+        if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
     }
 }
 
@@ -1873,7 +2098,7 @@ int main()
 {
     SetConsoleCP(1251);
     SetConsoleOutputCP(1251);
-    system("title Opencraft Classic Server 1.2");
+    system("title Opencraft Classic Server 1.3");
     MSG msg;
 
     if(FAILED(WSAStartup(MAKEWORD(1, 1), &ws)))
@@ -1962,6 +2187,11 @@ int main()
                     {
                         strcpy(server.motd, value);
                     }
+                    else if(strcmp(argument, "verify-names") == 0)
+                    {
+                        if(strcmp("false", value) == 0) server.verify_names = FALSE;
+                        else server.verify_names = TRUE;
+                    }
                     exit = TRUE;
                 }
                 if(exit == TRUE) break;
@@ -1989,13 +2219,15 @@ int main()
         fprintf(server_properties, "max-players=16\n", f);
         fprintf(server_properties, "server-name=Сервер Opencraft\n", f);
         fprintf(server_properties, "public=true\n", f);
-        fprintf(server_properties, "motd=Добро пожаловать на мой Opencraft сервер!", f);
+        fprintf(server_properties, "motd=Добро пожаловать на мой Opencraft сервер!\n", f);
+        fprintf(server_properties, "verify-names=true", f);
 
         server.port = 25565;
         server.max_players = 16;
         sprintf(server.server_name, "Сервер Opencraft");
         server.public = TRUE;
         sprintf(server.motd, "Добро пожаловать на мой Opencraft сервер!");
+        server.verify_names = TRUE;
 
         fclose(server_properties);
     }
@@ -2199,6 +2431,22 @@ int main()
             if(currentTime2 - lastTime2 > 10.0f)
             {
                 lastTime2 = currentTime2;
+                for(int q = 0; q < server.max_players; q++)
+                {
+                    char buff[512];
+                    if(!Player[q].active) continue;
+                    if(Player[q].cnt_msg >= 10)
+                    {
+                        for(int iw = 0; iw < 512; iw++)
+                        {
+                            buff[iw] = 0;
+                        }
+                        sprintf(buff, "ops spam");
+                        send(Player[q].sock, &buff, sizeof(buff), 0);
+                        kick(q);
+                    }
+                    Player[q].cnt_msg = 0;
+                }
             }
 
             static float lastTime3 = 0.0f;
@@ -2208,7 +2456,7 @@ int main()
                 float qwe = 0.0;
                 if(currentTime - lastTime <= 1) qwe = (currentTime - lastTime) / 0.01f;
                 else qwe = 1;
-                lastTime = currentTime;
+                currentTime3 = lastTime3;
                 for(int cnt = 1; cnt <= (int)qwe; cnt++)
                 {
                     for(int qwe = 0; qwe < 500; qwe++) EntityAI(qwe);

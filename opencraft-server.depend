@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1614958768 source:d:\Документы\Мои проекты\opencraft\src\opencraft\server\main.c
+1615482875 source:d:\Документы\Мои проекты\opencraft\src\opencraft\server\main.c
 	<stdio.h>
 	<stdlib.h>
 	<string.h>

@@ -38,6 +38,7 @@
 			<Add library="gdi32" />
 			<Add library="lib/libz.a" />
 			<Add library="C:/Program Files/CodeBlocks/MinGW/lib/libwsock32.a" />
+			<Add library="lib/libcurl.dll.a" />
 		</Linker>
 		<Unit filename="src/libs/stb_image/stb_image.h" />
 		<Unit filename="src/opencraft/client/blocks.c">

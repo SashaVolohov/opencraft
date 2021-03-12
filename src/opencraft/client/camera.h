@@ -26,6 +26,9 @@ typedef struct {
     float z_in_jump;
     int jump_down;
     char nickname[512];
+    char skin_url[512];
+    int skin_texture;
+    BOOL is_skin_load;
 } entity;
 
 typedef struct {

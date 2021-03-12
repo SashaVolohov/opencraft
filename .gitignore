@@ -8,3 +8,5 @@ server.dat
 \bin\Debug\client\server.dat
 admins.txt
 \bin\Debug\server\admins.txt
+skinscache
+\bin\Debug\client\skinscache

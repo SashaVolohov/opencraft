@@ -4,6 +4,7 @@
 
 #include "../../libs/stb_image/stb_image.h"
 #include "../../libs/zlib/zlib.h"
+#include "../../libs/curl/curl.h"
 
 #include "blocks.h"
 
@@ -19,7 +20,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.16a_02"
+#define OPENCRAFT_VERSION "0.0.17a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -341,6 +342,14 @@ float lastTimeChat = 0.0f;
 float nickname_vertex[] = {0,0,0, 0.3,0,0, 0.3,0,0.3, 0, 0, 0.3};
 
 BOOL F1_12_pressed = FALSE;
+
+float player_list[] = {0,0, 500,0, 500,300, 0,300};
+
+BOOL enter_password = FALSE;
+
+int type_chat = 0;
+
+char skin[512];
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -862,6 +871,13 @@ void GenerateNewWorld()
     afk = FALSE;
     SaveWorld();
 }
+
+size_t write_data(void *ptr, size_t size, size_t nmemb, FILE* stream)
+{
+    size_t written = fwrite(ptr, size, nmemb, stream);
+    return written;
+}
+
 void LoadTexture(char *filename, int *target)
 {
     int width, height, cnt;
@@ -1247,7 +1263,7 @@ void Game_Show()
                                 if(camera.Xrot <= 50 && camera.z + 9*2 < z) continue;
                                 if(camera.Xrot >= 110 && camera.z - 3 > z) continue;
                             }
-                            //if(!world_visible[chunkx][chunky][x][y][z] && on_server == FALSE) continue;
+                            if(!world_visible[chunkx][chunky][x][y][z] && on_server == FALSE) continue;
                             if(blocks[world[chunkx][chunky][x][y][z]].type == 1)
                             {
                                 glVertexPointer(3, GL_FLOAT, 0, block);
@@ -1506,12 +1522,40 @@ void Game_Show()
                     glPopMatrix();
                     }
 
+                    glBindTexture(GL_TEXTURE_2D, man_texture);
+
+                    if(j >= 499)
+                    {
+                        if(!Entities[j].is_skin_load)
+                        {
+                            CURL* curl = curl_easy_init();
+                            CURLcode response;
+                            char skin_path[512];
+                            sprintf(skin_path, "skincache\\%s.png", Entities[j].nickname);
+                            FILE* file = fopen(skin_path, "wb");
+                            if(file == NULL) creat(skin_path, S_IREAD|S_IWRITE);
+                            file = fopen(skin_path, "wb");
+                            curl_easy_setopt(curl, CURLOPT_URL, Entities[j].skin_url);
+                            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+                            curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+                            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, TRUE);
+                            curl_easy_setopt(curl, CURLOPT_CAINFO, "curl-ca-bundle.crt");
+                            response = curl_easy_perform(curl);
+                            curl_easy_cleanup(curl);
+                            fclose(file);
+
+                            LoadTexture(skin_path, &Entities[j].skin_texture);
+
+                            Entities[j].is_skin_load = TRUE;
+                        }
+                        glBindTexture(GL_TEXTURE_2D, Entities[j].skin_texture);
+                    }
+
                     glRotatef(Entities[j].Zrot, 0,0,1);
 
                     glTranslatef(0, Entities[j].leg_left_c, Entities[j].leg_left_z);
                     glRotatef(Entities[j].leg_left, 1,0,0);
 
-                    glBindTexture(GL_TEXTURE_2D, man_texture);
                     glVertexPointer(3, GL_FLOAT, 0, entity_man_leg);
                     glNormalPointer(GL_FLOAT, 0, normal);
                     glNormal3f(0,0,1);
@@ -2408,7 +2452,7 @@ void Menu_Show()
 
     for(int c = 0; c < 10; c++)
     {
-        if(chat[c].dVisible == TRUE) break;
+        if(chat[c].dVisible == TRUE && chat_open == FALSE) break;
         glPushMatrix();
             glTranslatef(5, scrSize.y-39-(15*(c+1)), 0);
             if(!chat[c].join_message) Text_Out(chat[c].text, 0);
@@ -2417,6 +2461,52 @@ void Menu_Show()
     }
 
     glColor3f(0.7, 0.7, 0.7);
+
+    if(GetKeyState(VK_TAB) < 0 && afk == FALSE && chat_open == FALSE && on_server == TRUE)
+    {
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 250, scrSize.y / 2 - 150, 0);
+            glDisable(GL_TEXTURE_2D);
+            glVertexPointer(2, GL_FLOAT, 0, player_list);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glColor4f(0, 0, 0, 0.7);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glDisable(GL_BLEND);
+            glColor3f(0.7, 0.7, 0.7);
+            glEnable(GL_TEXTURE_2D);
+            glTranslatef(145, 3, 0);
+            int cool = 0;
+            int columb = 0;
+            Text_Out("Подключённые игроки:", 0);
+            glTranslatef(-135, 20, 0);
+            Text_Out(nickname, 0);
+            cool++;
+            glTranslatef(0, 15, 0);
+            for(int qwe = 499; qwe < 1500; qwe++)
+            {
+                if(cool >= 18)
+                {
+                    glTranslatef(160, -270, 0);
+                    cool = 0;
+                    columb++;
+                    if(columb >= 3) break;
+                }
+                if(strlen(Entities[qwe].nickname) > 0)
+                {
+                    char nick[32];
+                    for(int n = 0; n < 15; n++)
+                    {
+                        nick[n] = Entities[qwe].nickname[n];
+                    }
+                    nick[15] = '\0';
+                    Text_Out(nick, 0);
+                    glTranslatef(0, 15, 0);
+                    cool++;
+                }
+            }
+        glPopMatrix();
+    }
 
     if(chat_open == TRUE)
     {
@@ -2721,6 +2811,7 @@ void WaitMessages()
         {
             server_error = TRUE;
             sprintf(ser_error_text, "Соединение потеряно");
+            sprintf(ser_error_text_output, "Соединение потеряно");
         }
         else
         {
@@ -2908,7 +2999,7 @@ void WaitMessages()
                 int cnt = 0;
                 for(int e = 10; e < 512; e++)
                 {
-                    if(buff[e] == ' ' && now == 6) break;
+                    if(buff[e] == ' ' && now == 7) break;
                     if(buff[e] == '\0') break;
                     if(buff[e] == ' ')
                     {
@@ -2974,6 +3065,7 @@ void WaitMessages()
                 char Zrot_t[10];
                 char id_t[10];
                 char nicknamet[512];
+                char skint[512];
                 int now = 0;
                 int cnt = 0;
                 for(int iw = 0; iw < 10; iw++)
@@ -2984,12 +3076,14 @@ void WaitMessages()
                     Xrot_t[iw] = 0;
                     Zrot_t[iw] = 0;
                     id_t[iw] = 0;
+                    nicknamet[iw] = 0;
+                    skint[iw] = 0;
                 }
                 now = 0;
                 cnt = 0;
                 for(int e = 13; e < 512; e++)
                 {
-                    if(buff[e] == ' ' && now == 6 || buff[e] == '\0') break;
+                    if(buff[e] == ' ' && now == 7 || buff[e] == '\0') break;
                     if(buff[e] == ' ')
                     {
                         now++;
@@ -3002,7 +3096,8 @@ void WaitMessages()
                     else if(now == 3) Xrot_t[cnt] = buff[e];
                     else if(now == 4) Zrot_t[cnt] = buff[e];
                     else if(now == 5) id_t[cnt] = buff[e];
-                    else nicknamet[cnt] = buff[e];
+                    else if(now == 6) nicknamet[cnt] = buff[e];
+                    else skint[cnt] = buff[e];
                     cnt++;
                 }
                 x_f = atof(x_t);
@@ -3018,6 +3113,7 @@ void WaitMessages()
                 Entities[499+id_i].Zrot = Zrot_f;
                 Entities[499+id_i].entity_id = 1;
                 strcpy(Entities[499+id_i].nickname, nicknamet);
+                strcpy(Entities[499+id_i].skin_url, skint);
             }
             else if(buff[4] == 'g' && buff[15] == 'e')
             {
@@ -3074,6 +3170,53 @@ void WaitMessages()
                 server_error = TRUE;
                 sprintf(ser_error_text, "Вас кикнул оператор");
                 sprintf(ser_error_text_output, "Вас кикнул оператор");
+            }
+            else if(buff[4] == 'r' && buff[14] == 'd')
+            {
+                enter_password = TRUE;
+            }
+            else if(buff[4] == 'b' && buff[15] == 'd')
+            {
+                server_error = TRUE;
+                sprintf(ser_error_text, "Вы ввели неверный пароль");
+                sprintf(ser_error_text_output, "Вы ввели неверный пароль");
+            }
+            else if(buff[4] == 's' && buff[7] == 'm')
+            {
+                server_error = TRUE;
+                sprintf(ser_error_text, "Вы были кикнуты за спам");
+                sprintf(ser_error_text_output, "Вы были кикнуты за спам");
+            }
+            else if(buff[4] == 'g' && buff[11] == 'n')
+            {
+                for(int iw = 0; iw < 512; iw++)
+                {
+                    buff[iw] = 0;
+                }
+                sprintf(buff, "ops skin %s", skin);
+                if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
+                {
+                    server_error = TRUE;
+                    sprintf(ser_error_text, "Неизвестная ошибка");
+                }
+            }
+            else if(buff[4] == 'd' && buff[15] == 'd')
+            {
+                int cnt = 0;
+                char idt[512];
+                for(int ie = 17; ie < 512; ie++)
+                {
+                    if(buff[ie] == '\0')
+                    {
+                        idt[cnt] = '\0';
+                        break;
+                    }
+                    idt[cnt] = buff[ie];
+                    cnt++;
+                }
+                int id = atoi(idt);
+                Entities[499+id].entity_id = 0;
+                Entities[499+id].is_skin_load = FALSE;
             }
         }
     }
@@ -3146,6 +3289,37 @@ void Text_Out3D(char *text)
     glPopMatrix();
 }
 
+void DirtBackgroundShow()
+{
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, scrSize.x, scrSize.y, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+    float background[] = {0,0, (float)scrSize.x,0, (float)scrSize.x,(float)scrSize.y, 0,(float)scrSize.y};
+    float background_texture[] = {0,0, scrSize.x/16,0, scrSize.x/16,scrSize.y/16, 0,scrSize.y/16};
+
+    glVertexPointer(2, GL_FLOAT, 0, background);
+    glTexCoordPointer(2, GL_FLOAT, 0, background_texture);
+    glBindTexture(GL_TEXTURE_2D, dirt_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glPushMatrix();
+        glTranslatef(0, 0, 0);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glPopMatrix();
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+}
+
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
 {
     PIXELFORMATDESCRIPTOR pfd;
@@ -3208,6 +3382,12 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
     SetCursor(wcex.hCursor);
 
+    TCHAR buffer[MAX_PATH];
+    GetCurrentDirectory(sizeof(buffer), buffer);
+    char path[MAX_PATH];
+    sprintf(path, "%s\\skincache", buffer);
+    if(!DirectoryExists(path)) mkdir(path);
+
     char argument[1000];
     char value[1000];
 
@@ -3256,6 +3436,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     {
                         if(strlen(value) <= 32) strcpy(nickname, value);
                         else sprintf(nickname, "Man");
+                    }
+                    else if(strcmp(argument, "skin") == 0)
+                    {
+                        strcpy(skin, value);
                     }
                     exit = TRUE;
                 }
@@ -3641,16 +3825,56 @@ int WINAPI WinMain(HINSTANCE hInstance,
                 }
                 else if(server_loaded == FALSE)
                 {
-                    cursorShow = TRUE;
-                    while (ShowCursor(TRUE) <= 0);
-                    int size_motd = 0;
-                    for(int q = 0; q < 512; q++)
+                    if(!enter_password)
                     {
-                        if(server.motd[q] == '\0') break;
-                        size_motd++;
+                        cursorShow = TRUE;
+                        while (ShowCursor(TRUE) <= 0);
+                        int size_motd = 0;
+                        for(int q = 0; q < 512; q++)
+                        {
+                            if(server.motd[q] == '\0') break;
+                            size_motd++;
+                        }
+                        GenMenu_Show(server.motd, size_motd, 3);
+                        SwapBuffers(hDC);
                     }
-                    GenMenu_Show(server.motd, size_motd, 3);
-                    SwapBuffers(hDC);
+                    else
+                    {
+                        static float lastTimec = 0.0f;
+                        type_chat = 1;
+                        float currentTimec = GetTickCount() * 0.001f;
+                        if(currentTimec - lastTimec > 0.5f)
+                        {
+                            lastTimec = currentTimec;
+                            show_chat_cursor = !show_chat_cursor;
+                        }
+                        cursorShow = TRUE;
+                        chat_open = TRUE;
+                        while (ShowCursor(TRUE) <= 0);
+                        DirtBackgroundShow();
+                        glTranslatef(scrSize.x / 2 - 202.5, scrSize.y / 2 - 22.5, 0);
+                        glEnableClientState(GL_VERTEX_ARRAY);
+                        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                        glPushMatrix();
+                            glDisable(GL_TEXTURE_2D);
+                            glVertexPointer(2, GL_FLOAT, 0, button);
+                            glColor3f(0, 0, 0);
+                            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                            glColor3f(1, 1, 1);
+                            glDrawArrays(GL_LINE_LOOP, 0, 4);
+                            glEnable(GL_TEXTURE_2D);
+                            glColor3f(0.7, 0.7, 0.7);
+                        glPopMatrix();
+                        glTranslatef(0, -30, 0);
+                        Text_Out("Введите пароль:", 0);
+                        glTranslatef(5, 45, 0);
+                        Text_Out(chat_string, 0);
+                        if(chat_size != 0) glTranslatef(10*chat_size, 0, 0);
+                        if(show_chat_cursor == TRUE) Text_Out("_", 0);
+                        SwapBuffers(hDC);
+                        glDisableClientState(GL_VERTEX_ARRAY);
+                        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                    }
 
                     if(!sendGetWorld)
                     {
@@ -3858,6 +4082,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         }
                         if(GetKeyState('T') < 0 && afk == FALSE && chat_open == FALSE)
                         {
+                            type_chat = 0;
                             chat_open = TRUE;
                             cursorShow = TRUE;
                             for(int wrt = 0; wrt < 256; wrt++)
@@ -4109,15 +4334,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         char buff[512];
                         if(chat_size > 0)
                         {
-                            chat_open = FALSE;
-                            cursorShow = FALSE;
-                            SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
-                            while (ShowCursor(FALSE) >= 0);
+                            if(type_chat == 0)
+                            {
+                                chat_open = FALSE;
+                                cursorShow = FALSE;
+                                SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
+                                while (ShowCursor(FALSE) >= 0);
+                            }
                             for(int iw = 0; iw < 512; iw++)
                             {
                                 buff[iw] = 0;
                             }
-                            sprintf(buff, "ops chat %s", chat_string);
+                            if(type_chat == 0) sprintf(buff, "ops chat %s", chat_string);
+                            else sprintf(buff, "ops password %s", chat_string);
                             if(SOCKET_ERROR == (send(s, &buff, sizeof(buff), 0)))
                             {
                                 server_error = TRUE;
@@ -4128,14 +4357,30 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                                 chat_string[iw] = 0;
                             }
                             chat_size = 0;
+                            if(type_chat == 1)
+                            {
+                                enter_password = FALSE;
+                                chat_open = FALSE;
+                            }
                         }
                         repeat_time = FALSE;
                         return 0;
                     }
-                    if(chat_size < 70)
+                    if(type_chat == 0)
                     {
-                        chat_string[chat_size] = wParam;
-                        chat_size++;
+                        if(chat_size < 70)
+                        {
+                            chat_string[chat_size] = wParam;
+                            chat_size++;
+                        }
+                    }
+                    else
+                    {
+                        if(chat_size < 39)
+                        {
+                            chat_string[chat_size] = wParam;
+                            chat_size++;
+                        }
                     }
                     repeat_time = FALSE;
                 }
