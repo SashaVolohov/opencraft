@@ -16,7 +16,7 @@
 #include <conio.h>
 #include <math.h>
 
-#define OPENCRAFT_VERSION "0.0.17a"
+#define OPENCRAFT_VERSION "0.0.18a"
 
 BOOL bQuit = FALSE;
 
@@ -1050,7 +1050,7 @@ void WaitSends(int playerid)
                 for(int qwe = 0; qwe < server.max_players; qwe++)
                 {
                     if(Player[qwe].active == FALSE) continue;
-                    //if(qwe == playerid) continue;
+                    if(qwe == playerid) continue;
                     char buff[512];
                     for(int iw = 0; iw < 512; iw++)
                     {
@@ -1238,27 +1238,39 @@ void WaitSends(int playerid)
                         }
                         else
                         {
-                            for(int qwe = 0; qwe < server.max_players; qwe++)
+                            if(strlen(arg) == 0)
                             {
-                                if(strcmp(Player[qwe].nickname, arg) == 0)
+                                for(int iw = 0; iw < 512; iw++)
                                 {
-                                    if(qwe == playerid)
-                                    {
-                                        sprintf(buff, "ops chat_message Вы не можете забанить самого себя.");
-                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        ban(qwe);
-                                        sprintf(buff, "ops chat_message Вы забанили игрока %s", Player[qwe].nickname);
-                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
-                                    }
+                                    buff[iw] = 0;
                                 }
-                                else if(qwe == server.max_players-1)
+                                sprintf(buff, "ops chat_message Введите аргументы команды.");
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                            }
+                            else
+                            {
+                                for(int qwe = 0; qwe < server.max_players; qwe++)
                                 {
-                                    sprintf(buff, "ops chat_message Игрока с таким ником нет в сети", Player[qwe].nickname);
-                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    if(strcmp(Player[qwe].nickname, arg) == 0)
+                                    {
+                                        if(qwe == playerid)
+                                        {
+                                            sprintf(buff, "ops chat_message Вы не можете забанить самого себя.");
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            ban(qwe);
+                                            sprintf(buff, "ops chat_message Вы забанили игрока %s", Player[qwe].nickname);
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                        }
+                                    }
+                                    else if(qwe == server.max_players-1)
+                                    {
+                                        sprintf(buff, "ops chat_message Игрока с таким ником нет в сети", Player[qwe].nickname);
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    }
                                 }
                             }
                         }
@@ -1272,34 +1284,46 @@ void WaitSends(int playerid)
                         }
                         else
                         {
-                            for(int qwe = 0; qwe < server.max_players; qwe++)
+                            if(strlen(arg) == 0)
                             {
-                                if(strcmp(Player[qwe].nickname, arg) == 0)
+                                for(int iw = 0; iw < 512; iw++)
                                 {
-                                    if(qwe == playerid)
-                                    {
-                                        sprintf(buff, "ops chat_message Вы не можете кикнуть самого себя.");
-                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        sprintf(buff, "ops chat_message Вы кикнули игрока %s", Player[qwe].nickname);
-                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
-                                        sprintf(buff, "ops kicked");
-                                        send(Player[qwe].sock, &buff, sizeof(buff), 0);
-                                        sprintf(buff, "%s(%s) покинул игру\n\0", Player[qwe].nickname, inet_ntoa(Player[qwe].ca.sin_addr));
-                                        printText(buff, FALSE);
-                                        Player[qwe].active = FALSE;
-                                        closesocket(Player[qwe].sock);
-                                        kick(playerid);
-                                        cnt_players--;
-                                    }
+                                    buff[iw] = 0;
                                 }
-                                else if(qwe == server.max_players-1)
+                                sprintf(buff, "ops chat_message Введите аргументы команды.");
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                            }
+                            else
+                            {
+                                for(int qwe = 0; qwe < server.max_players; qwe++)
                                 {
-                                    sprintf(buff, "ops chat_message Игрока с таким ником нет в сети", Player[qwe].nickname);
-                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    if(strcmp(Player[qwe].nickname, arg) == 0)
+                                    {
+                                        if(qwe == playerid)
+                                        {
+                                            sprintf(buff, "ops chat_message Вы не можете кикнуть самого себя.");
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            sprintf(buff, "ops chat_message Вы кикнули игрока %s", Player[qwe].nickname);
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                            sprintf(buff, "ops kicked");
+                                            send(Player[qwe].sock, &buff, sizeof(buff), 0);
+                                            sprintf(buff, "%s(%s) покинул игру\n\0", Player[qwe].nickname, inet_ntoa(Player[qwe].ca.sin_addr));
+                                            printText(buff, FALSE);
+                                            Player[qwe].active = FALSE;
+                                            closesocket(Player[qwe].sock);
+                                            kick(playerid);
+                                            cnt_players--;
+                                        }
+                                    }
+                                    else if(qwe == server.max_players-1)
+                                    {
+                                        sprintf(buff, "ops chat_message Игрока с таким ником нет в сети", Player[qwe].nickname);
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    }
                                 }
                             }
                         }
@@ -1313,15 +1337,27 @@ void WaitSends(int playerid)
                         }
                         else
                         {
-                            for(int q = 0; q < server.max_players; q++)
+                            if(strlen(arg) == 0)
                             {
-                                if(Player[q].active == FALSE) continue;
                                 for(int iw = 0; iw < 512; iw++)
                                 {
                                     buff[iw] = 0;
                                 }
-                                sprintf(buff, "ops chat_message [@] %s", arg);
-                                if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
+                                sprintf(buff, "ops chat_message Введите аргументы команды.");
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                            }
+                            else
+                            {
+                                for(int q = 0; q < server.max_players; q++)
+                                {
+                                    if(Player[q].active == FALSE) continue;
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops chat_message [@] %s", arg);
+                                    if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
+                                }
                             }
                         }
                     }
@@ -1334,27 +1370,39 @@ void WaitSends(int playerid)
                         }
                         else
                         {
-                            for(int qwe = 0; qwe < server.max_players; qwe++)
+                            if(strlen(arg) == 0)
                             {
-                                if(strcmp(inet_ntoa(Player[qwe].ca.sin_addr), arg) == 0)
+                                for(int iw = 0; iw < 512; iw++)
                                 {
-                                    if(qwe == playerid)
-                                    {
-                                        sprintf(buff, "ops chat_message Вы не можете забанить свой IP-адрес.");
-                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        banip(qwe);
-                                        sprintf(buff, "ops chat_message Вы заблокировали IP адрес %s", arg);
-                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
-                                    }
+                                    buff[iw] = 0;
                                 }
-                                else if(qwe == server.max_players-1)
+                                sprintf(buff, "ops chat_message Введите аргументы команды.");
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                            }
+                            else
+                            {
+                                for(int qwe = 0; qwe < server.max_players; qwe++)
                                 {
-                                    sprintf(buff, "ops chat_message Игрока с таким IP нет в сети");
-                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    if(strcmp(inet_ntoa(Player[qwe].ca.sin_addr), arg) == 0)
+                                    {
+                                        if(qwe == playerid)
+                                        {
+                                            sprintf(buff, "ops chat_message Вы не можете забанить свой IP-адрес.");
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            banip(qwe);
+                                            sprintf(buff, "ops chat_message Вы заблокировали IP адрес %s", arg);
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                        }
+                                    }
+                                    else if(qwe == server.max_players-1)
+                                    {
+                                        sprintf(buff, "ops chat_message Игрока с таким IP нет в сети");
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    }
                                 }
                             }
                         }
@@ -1368,28 +1416,282 @@ void WaitSends(int playerid)
                         }
                         else
                         {
-                            spawn.x = Player[playerid].x;
-                            spawn.y = Player[playerid].y;
-                            spawn.z = Player[playerid].z;
-                            spawn.Xrot = Player[playerid].Xrot;
-                            spawn.Zrot = Player[playerid].Zrot;
-
-                            for(int q = 0; q < server.max_players; q++)
+                            if(strlen(arg) == 0)
                             {
-                                if(Player[q].active == FALSE) continue;
                                 for(int iw = 0; iw < 512; iw++)
                                 {
                                     buff[iw] = 0;
                                 }
-                                sprintf(buff, "ops spawn %f %f %f %f %f", spawn.x, spawn.y, spawn.z, spawn.Xrot, spawn.Zrot);
-                                if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
+                                sprintf(buff, "ops chat_message Введите аргументы команды.");
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                             }
-                            for(int iw = 0; iw < 512; iw++)
+                            else
                             {
-                                buff[iw] = 0;
+                                spawn.x = Player[playerid].x;
+                                spawn.y = Player[playerid].y;
+                                spawn.z = Player[playerid].z;
+                                spawn.Xrot = Player[playerid].Xrot;
+                                spawn.Zrot = Player[playerid].Zrot;
+
+                                for(int q = 0; q < server.max_players; q++)
+                                {
+                                    if(Player[q].active == FALSE) continue;
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops spawn %f %f %f %f %f", spawn.x, spawn.y, spawn.z, spawn.Xrot, spawn.Zrot);
+                                    if(SOCKET_ERROR == (send(Player[q].sock, &buff, sizeof(buff), 0))) kick(q);
+                                }
+                                for(int iw = 0; iw < 512; iw++)
+                                {
+                                    buff[iw] = 0;
+                                }
+                                sprintf(buff, "ops chat_message Вы успешно изменили координаты спавна на %d, %d, %d", (int)spawn.x, (int)spawn.y, (int)spawn.z);
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                             }
-                            sprintf(buff, "ops chat_message Вы успешно изменили координаты спавна на %d, %d, %d", (int)spawn.x, (int)spawn.y, (int)spawn.z);
+                        }
+                    }
+                    if(strcmp(cmd, "/teleport") == 0 || strcmp(cmd, "/tp") == 0)
+                    {
+                        if(!isPlayerOP(playerid))
+                        {
+                            sprintf(buff, "ops chat_message Извините, но Вы не являетесь администратором этого сервера.");
                             if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                        }
+                        else
+                        {
+                            char f_t[512];
+                            char s_t[512];
+                            char t_t[512];
+                            char fi_t[512];
+                            int now = 0;
+                            int cnt = 0;
+                            for(int iw = 0; iw < 10; iw++)
+                            {
+                                f_t[iw] = 0;
+                                s_t[iw] = 0;
+                                t_t[iw] = 0;
+                                fi_t[iw] = 0;
+                            }
+                            now = 0;
+                            cnt = 0;
+                            for(int e = 0; e < 512; e++)
+                            {
+                                if(arg[e] == ' ' && now == 3 || arg[e] == '\0') break;
+                                if(arg[e] == ' ')
+                                {
+                                    now++;
+                                    cnt = 0;
+                                    continue;
+                                }
+                                if(now == 0) f_t[cnt] = arg[e];
+                                else if(now == 1) s_t[cnt] = arg[e];
+                                else if(now == 2) t_t[cnt] = arg[e];
+                                else fi_t[cnt] = arg[e];
+                                cnt++;
+                            }
+                            if(strlen(f_t) > 0 && strlen(s_t) > 0 && strlen(t_t) > 0 && strlen(fi_t) == 0)
+                            {
+                                float x_f = atof(f_t);
+                                float y_f = atof(s_t);
+                                float z_f = atof(t_t);
+                                if(x_f < 0 || x_f > worldsizex || y_f < 0 || y_f > worldsizex || z_f < 0 || z_f > 256)
+                                {
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops chat_message Неверные координаты.", Player[playerid].nickname, x_f, y_f, z_f);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                }
+                                else
+                                {
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops chat_message %s телепортирован в точку %.1f %.1f %.1f", Player[playerid].nickname, x_f, y_f, z_f);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops tp %f %f %f", x_f, y_f, z_f);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                }
+                            }
+                            else if(strlen(f_t) > 0 && strlen(s_t) == 0 && strlen(t_t) == 0 && strlen(fi_t) == 0)
+                            {
+                                int pid = -1;
+                                for(int iw = 0; iw < 512; iw++)
+                                {
+                                    buff[iw] = 0;
+                                }
+                                for(int qwe = 0; qwe < server.max_players; qwe++)
+                                {
+                                    if(strcmp(f_t, Player[qwe].nickname) == 0)
+                                    {
+                                        if(qwe == playerid)
+                                        {
+                                            sprintf(buff, "ops chat_message Вы не можете телепортироваться к самому себе.");
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            pid = qwe;
+                                            break;
+                                        }
+                                    }
+                                    else if(qwe == server.max_players-1)
+                                    {
+                                        sprintf(buff, "ops chat_message Игрока с таким ником нет в сети");
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    }
+                                }
+                                if(pid != -1)
+                                {
+                                    sprintf(buff, "ops chat_message %s телепортирован к %s", Player[playerid].nickname, f_t);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops tp %f %f %f", Player[pid].x, Player[pid].y, Player[pid].z);
+                                    if(SOCKET_ERROR == (send(Player[pid].sock, &buff, sizeof(buff), 0))) kick(pid);
+                                }
+                            }
+                            else if(strlen(f_t) > 0 && strlen(s_t) > 0 && strlen(t_t) == 0 && strlen(fi_t) == 0)
+                            {
+                                int pid = -1;
+                                int ptid = -1;
+                                for(int iw = 0; iw < 512; iw++)
+                                {
+                                    buff[iw] = 0;
+                                }
+                                for(int qwe = 0; qwe < server.max_players; qwe++)
+                                {
+                                    if(strcmp(f_t, Player[qwe].nickname) == 0)
+                                    {
+                                        if(qwe == playerid)
+                                        {
+                                            sprintf(buff, "ops chat_message Вы не можете телепортироваться к самому себе.");
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            pid = qwe;
+                                            break;
+                                        }
+                                    }
+                                    else if(qwe == server.max_players-1)
+                                    {
+                                        sprintf(buff, "ops chat_message Игрока с таким ником нет в сети");
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    }
+                                }
+                                for(int qwe = 0; qwe < server.max_players; qwe++)
+                                {
+                                    if(pid == -1) break;
+                                    if(strcmp(s_t, Player[qwe].nickname) == 0)
+                                    {
+                                        if(qwe == playerid)
+                                       {
+                                            sprintf(buff, "ops chat_message Вы не можете телепортироваться к самому себе.");
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            ptid = qwe;
+                                            break;
+                                        }
+                                    }
+                                    else if(qwe == server.max_players-1)
+                                    {
+                                        sprintf(buff, "ops chat_message Игрока с таким ником нет в сети");
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                    }
+                                }
+                                if(pid != -1 && ptid != -1)
+                                {
+                                    sprintf(buff, "ops chat_message %s телепортирован к %s", Player[pid].nickname, Player[ptid].nickname);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(pid);
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops tp %f %f %f", Player[ptid].x, Player[ptid].y, Player[ptid].z);
+                                    if(SOCKET_ERROR == (send(Player[pid].sock, &buff, sizeof(buff), 0))) kick(pid);
+                                }
+                            }
+                            else if(strlen(f_t) > 0 && strlen(s_t) > 0 && strlen(t_t) > 0 && strlen(fi_t) > 0)
+                            {
+                                float x_f = atof(s_t);
+                                float y_f = atof(t_t);
+                                float z_f = atof(fi_t);
+                                if(x_f < 0 || x_f > worldsizex || y_f < 0 || y_f > worldsizex || z_f < 0 || z_f > 256)
+                                {
+                                    for(int iw = 0; iw < 512; iw++)
+                                    {
+                                        buff[iw] = 0;
+                                    }
+                                    sprintf(buff, "ops chat_message Неверные координаты.", Player[playerid].nickname, x_f, y_f, z_f);
+                                    if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                }
+                                else
+                                {
+                                    int pid = -1;
+                                    for(int qwe = 0; qwe < server.max_players; qwe++)
+                                    {
+                                        if(strcmp(f_t, Player[qwe].nickname) == 0)
+                                        {
+                                            if(qwe == playerid)
+                                            {
+                                                sprintf(buff, "ops chat_message Вы не можете телепортироваться к самому себе.");
+                                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                pid = qwe;
+                                                break;
+                                            }
+                                        }
+                                        else if(qwe == server.max_players-1)
+                                        {
+                                            sprintf(buff, "ops chat_message Игрока с таким ником нет в сети");
+                                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                        }
+                                    }
+                                    if(pid != -1)
+                                    {
+                                        for(int iw = 0; iw < 512; iw++)
+                                        {
+                                            buff[iw] = 0;
+                                        }
+                                        sprintf(buff, "ops chat_message %s телепортирован в точку %.1f %.1f %.1f", Player[pid].nickname, x_f, y_f, z_f);
+                                        if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                                        for(int iw = 0; iw < 512; iw++)
+                                        {
+                                            buff[iw] = 0;
+                                        }
+                                        sprintf(buff, "ops tp %f %f %f", x_f, y_f, z_f);
+                                        if(SOCKET_ERROR == (send(Player[pid].sock, &buff, sizeof(buff), 0))) kick(pid);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                for(int iw = 0; iw < 512; iw++)
+                                {
+                                    buff[iw] = 0;
+                                }
+                                sprintf(buff, "ops chat_message Введите аргументы команды.");
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                            }
                         }
                     }
                 }
@@ -2098,7 +2400,7 @@ int main()
 {
     SetConsoleCP(1251);
     SetConsoleOutputCP(1251);
-    system("title Opencraft Classic Server 1.3");
+    system("title Opencraft Classic Server 1.4");
     MSG msg;
 
     if(FAILED(WSAStartup(MAKEWORD(1, 1), &ws)))

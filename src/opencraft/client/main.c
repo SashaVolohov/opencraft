@@ -20,7 +20,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.17a"
+#define OPENCRAFT_VERSION "0.0.18a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -3217,6 +3217,42 @@ void WaitMessages()
                 int id = atoi(idt);
                 Entities[499+id].entity_id = 0;
                 Entities[499+id].is_skin_load = FALSE;
+            }
+            else if(buff[4] == 't' && buff[5] == 'p')
+            {
+                char x_t[10];
+                char y_t[10];
+                char z_t[10];
+                int now = 0;
+                int cnt = 0;
+                for(int iw = 0; iw < 10; iw++)
+                {
+                    x_t[iw] = 0;
+                    y_t[iw] = 0;
+                    z_t[iw] = 0;
+                }
+                now = 0;
+                cnt = 0;
+                for(int e = 7; e < 512; e++)
+                {
+                    if(buff[e] == ' ' && now == 2 || buff[e] == '\0') break;
+                    if(buff[e] == ' ')
+                    {
+                        now++;
+                        cnt = 0;
+                        continue;
+                    }
+                    if(now == 0) x_t[cnt] = buff[e];
+                    else if(now == 1) y_t[cnt] = buff[e];
+                    else z_t[cnt] = buff[e];
+                    cnt++;
+                }
+                float x_f = atof(x_t);
+                float y_f = atof(y_t);
+                float z_f = atof(z_t);
+                camera.x = x_f;
+                camera.y = y_f;
+                camera.z = z_f;
             }
         }
     }
