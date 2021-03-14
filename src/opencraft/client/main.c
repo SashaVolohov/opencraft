@@ -20,7 +20,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.18a"
+#define OPENCRAFT_VERSION "0.0.19a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -59,7 +59,7 @@ int timer_n = 0;
 int timer_pl = 0;
 int timer_enter = 0;
 
-int select_inv = 1;
+int select_inv = 0;
 
 float size = 20.f;
 
@@ -200,9 +200,9 @@ float man_left_hand_down_texture[] = {0.5625,0.905, 0.625,0.785, 0.625,0.66, 0.5
 float cursor[] = {0,0, 32,0, 32,32, 0,32};
 float cursor_texture[] = {0,0, 0.06455,0, 0.06455,0.06455, 0,0.06455};
 
-float block_inventory[] = {0,0, 32, 16, 32, 50, 0, 37};
-float block_inventory_2[] = {32, 16, 64, 0, 64, 37, 32, 50};
-float block_inventory_3[] = {0,0, 32, -16, 64, 0, 32, 16};
+float block_inventory[] = {0,0, 14, 8, 14, 23, 0, 18.5};
+float block_inventory_2[] = {14, 8, 28, 0, 28, 18.5, 14, 23};
+float block_inventory_3[] = {0,0, 14, -8, 28, 0, 14, 8};
 
 float block_inventory_texture[] = {0,0, 1,0, 1,1, 0,1};
 
@@ -212,7 +212,7 @@ GLuint plantInd[] = {0,1,2, 2,3,0, 4,5,6, 6,7,4};
 
 int plantIndCnt = sizeof(plantInd) / sizeof(GLuint);
 
-float block_inventory_flat[] = {0,0, 64,0, 64,64, 0,64};
+float block_inventory_flat[] = {0,0, 28,0, 28,28, 0,28};
 
 float rectCoord[] = {0,0, 16,0, 16,16, 0,16};
 float rectTex[] = {0,0, 1,0, 1,1, 0,1};
@@ -259,8 +259,15 @@ float lava_UV[] = {0,0, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
 float lava_UV_2[] = {0,0.0, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
 float lava_UV_3[] = {0,1, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
 float lava_UV_4[] = {0,1, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
-float lava_UV_5[] = {0,1, 1,1, 1,0, 0,0, 0,1, 1,1, 1,0, 0,0};
+float lava_UV_5[] = {0,0, 1,1, 1,0, 0,0, 0,1, 1,1, 1,0, 0,0};
 float lava_UV_updn[] = {0,1, 1,1, 1,0, 0,0, 0,1, 1,1, 1,0, 0,0};
+
+float real_lava_UV[] = {0,0, 1,0.035, 0,0.035, 1,0.035, 0,0, 1,0, 0,0, 1,0};
+float real_lava_UV_2[] = {0,0.0, 1,0.035, 0,0.035, 1,0.035, 0,0, 1,0, 0,0, 1,0};
+float real_lava_UV_3[] = {0,0.035, 1,0.035, 0,0.035, 1,0.035, 0,0, 1,0, 0,0, 1,0};
+float real_lava_UV_4[] = {0,0.035, 1,0.035, 0,0.035, 1,0.035, 0,0, 1,0, 0,0, 1,0};
+float real_lava_UV_5[] = {0,0, 1,0.035, 1,0, 0,0, 0,0.035, 1,0.035, 1,0, 0,0};
+float real_lava_UV_updn[] = {0,0.035, 1,0.035, 1,0, 0,0, 0,0.035, 1,0.035, 1,0, 0,0};
 
 float button_coord_closed[] = {0,0.18, 0.78,0.18, 0.78,0.26, 0,0.26};
 float button_coord[] = {0,0.26, 0.78,0.26, 0.78,0.335, 0,0.335};
@@ -350,6 +357,20 @@ BOOL enter_password = FALSE;
 int type_chat = 0;
 
 char skin[512];
+
+float panel_fast[] = {0,0, 365,0, 365,45, 0,45};
+float panel_texture[] = {0,0, 0.8,0, 0.8, 0.085, 0, 0.085};
+
+float panel_select_fast[] = {0,0, 45,0, 45,48, 0,48};
+float panel_select_texture[] = {0,0.09, 0.1,0.09, 0.1, 0.18, 0, 0.18};
+
+typedef struct {
+    int id;
+} SSlot;
+
+SSlot Inventory[9];
+
+int anim_lw = 0;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -899,13 +920,7 @@ void LoadTexture(char *filename, int *target)
 
 void Game_Init()
 {
-    LoadTexture("textures/blocks/cobblestone.png", &cobblestone_texture);
-    LoadTexture("textures/blocks/grass_top.png", &grass_top_texture);
-    LoadTexture("textures/blocks/grass_side.png", &grass_side_texture);
     LoadTexture("textures/blocks/dirt.png", &dirt_texture);
-    LoadTexture("textures/blocks/planks.png", &planks_texture);
-    LoadTexture("textures/blocks/stone.png", &stone_texture);
-    LoadTexture("textures/blocks/sapling.png", &sapling_texture);
 
     registerBlock(1, 1, "textures/blocks/cobblestone.png");
     registerBlock(2, 2, "textures/blocks/grass_side.png", "textures/blocks/grass_top.png", "textures/blocks/dirt.png");
@@ -923,6 +938,18 @@ void Game_Init()
     registerBlock(14, 1, "textures/blocks/coal_ore.png");
     registerBlock(15, 2, "textures/blocks/log.png", "textures/blocks/log_top.png", "textures/blocks/log_top.png");
     registerBlock(16, 5, "textures/blocks/leaves.png");
+    registerBlock(17, 1, "textures/blocks/sponge.png");
+    registerBlock(18, 1, "textures/blocks/glass.png");
+
+    Inventory[0].id = 5;
+    Inventory[1].id = 3;
+    Inventory[2].id = 17;
+    Inventory[3].id = 4;
+    Inventory[4].id = 6;
+    Inventory[5].id = 15;
+    Inventory[6].id = 16;
+    Inventory[7].id = 18;
+    Inventory[8].id = 11;
 
     LoadTexture("textures/entity/man.png", &man_texture);
 
@@ -1213,11 +1240,15 @@ void Game_Show()
 
     int lava_reqshow = 0;
 
-    if(GetKeyState('1') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 1;
-    if(GetKeyState('2') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 2;
-    if(GetKeyState('3') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 3;
-    if(GetKeyState('4') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 4;
-    if(GetKeyState('6') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 6;
+    if(GetKeyState('1') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 0;
+    if(GetKeyState('2') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 1;
+    if(GetKeyState('3') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 2;
+    if(GetKeyState('4') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 3;
+    if(GetKeyState('5') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 4;
+    if(GetKeyState('6') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 5;
+    if(GetKeyState('7') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 6;
+    if(GetKeyState('8') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 7;
+    if(GetKeyState('9') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 8;
 
     int dcnt = 0;
     glPushMatrix();
@@ -1274,37 +1305,37 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16 || GetBlockID(x+dcx, y+dcy+1, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16 || GetBlockID(x+dcx+1, y+dcy, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16 || GetBlockID(x+dcx, y+dcy, z+1) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18)
                                     {
                                         glTranslatef(0.0, 0.0, -1);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
@@ -1322,37 +1353,37 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16 || GetBlockID(x+dcx, y+dcy+1, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16 || GetBlockID(x+dcx+1, y+dcy, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16 || GetBlockID(x+dcx, y+dcy, z+1) == 18)
                                     {
                                         glBindTexture(GL_TEXTURE_2D, blocks[world[chunkx][chunky][x][y][z]].texture[1]);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18)
                                     {
                                         glBindTexture(GL_TEXTURE_2D, blocks[world[chunkx][chunky][x][y][z]].texture[2]);
                                         glTranslatef(0.0, 0.0, -1);
@@ -1419,37 +1450,37 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 18)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18)
                                     {
                                         glTranslatef(0.0, 0.0, -1);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
@@ -1743,6 +1774,12 @@ void Game_Show()
 
         for(int w = 0; w < lava_req; w++)
         {
+            float real_lava_UV[] = {0,0+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw)};
+            float real_lava_UV_2[] = {0,0+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw)};
+            float real_lava_UV_3[] = {0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw)};
+            float real_lava_UV_4[] = {0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw)};
+            float real_lava_UV_5[] = {0,0+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw)};
+            float real_lava_UV_updn[] = {0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw)};
             int x = LavaVisible[w].x;
             int y = LavaVisible[w].y;
             int z = LavaVisible[w].z;
@@ -1765,38 +1802,38 @@ void Game_Show()
                 glTranslatef(x, y, z);
                 if(GetBlockID(x, y+1, z) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                 }
 
                 if(GetBlockID(x+1, y, z) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_2);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                 }
 
                 if(GetBlockID(x, y-1, z) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_3);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                 }
 
                 if(GetBlockID(x-1, y, z) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_4);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                 }
 
                 if(GetBlockID(x, y, z+1) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_5);
                     glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                 }
 
                 if(GetBlockID(x, y, z-1) == 0)
                 {
                     glTranslatef(0.0, 0.0, -1);
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_updn);
                     glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                 }
             glPopMatrix();
@@ -1946,11 +1983,7 @@ int PlayerSetBlock()
                 {
                     if((int)camera.x == (int)bx && (int)camera.y == (int)by && (int)camera.z == (int)bz) return;
                     if((int)camera.x == (int)bx && (int)camera.y == (int)by && (int)camera.z+1 == (int)bz) return;
-                    if(select_inv == 1) world[chunkx][chunky][X][Y][Z] = 5;
-                    if(select_inv == 2) world[chunkx][chunky][X][Y][Z] = 3;
-                    if(select_inv == 3) world[chunkx][chunky][X][Y][Z] = 1;
-                    if(select_inv == 4) world[chunkx][chunky][X][Y][Z] = 4;
-                    if(select_inv == 6) world[chunkx][chunky][X][Y][Z] = 6;
+                    world[chunkx][chunky][X][Y][Z] = Inventory[select_inv].id;
                     map_changed = TRUE;
                     if(on_server == FALSE)
                     {
@@ -2390,40 +2423,62 @@ void Menu_Show()
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glPopMatrix();
 
-    curx = scrSize.x - 64 - 5;
-    cury = 20;
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    if(select_inv == 1) glBindTexture(GL_TEXTURE_2D, stone_texture);
-    if(select_inv == 2) glBindTexture(GL_TEXTURE_2D, dirt_texture);
-    if(select_inv == 3) glBindTexture(GL_TEXTURE_2D, cobblestone_texture);
-    if(select_inv == 4) glBindTexture(GL_TEXTURE_2D, planks_texture);
-    if(select_inv == 6) glBindTexture(GL_TEXTURE_2D, sapling_texture);
-
-    if(select_inv != 6) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
-    else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
-    glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+    glVertexPointer(2, GL_FLOAT, 0, panel_fast);
+    glTexCoordPointer(2, GL_FLOAT, 0, panel_texture);
+    glBindTexture(GL_TEXTURE_2D, widgets_texture);
     glPushMatrix();
-        if(select_inv != 6) glTranslatef(curx, cury, 0);
-        else glTranslatef(curx, cury-16, 0);
+        glTranslatef(scrSize.x / 2 - 182.5, scrSize.y - 45, 0);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glPopMatrix();
 
-    if(select_inv != 6)
+    for(int i = 0; i < 9; i++)
     {
-        glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
+        curx = scrSize.x / 2 - 177 + (35.75*i);
+        cury = scrSize.y - 30;
+
+        glBindTexture(GL_TEXTURE_2D, blocks[Inventory[i].id].texture[0]);
+
+        if(blocks[Inventory[i].id].type != 3) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
+        else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
         glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
         glPushMatrix();
-            glTranslatef(curx, cury, 0);
+            if(blocks[Inventory[i].id].type != 3) glTranslatef(curx, cury, 0);
+            else glTranslatef(curx, cury-8, 0);
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         glPopMatrix();
 
-        glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
-        glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+        if(blocks[Inventory[i].id].type != 3)
+        {
+            glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
+            glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+            glPushMatrix();
+                glTranslatef(curx, cury, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glPopMatrix();
+
+            if(blocks[Inventory[i].id].type == 2) glBindTexture(GL_TEXTURE_2D, blocks[Inventory[i].id].texture[1]);
+
+            glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
+            glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+            glPushMatrix();
+                glTranslatef(curx, cury, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glPopMatrix();
+        }
+
+        glVertexPointer(2, GL_FLOAT, 0, panel_select_fast);
+        glTexCoordPointer(2, GL_FLOAT, 0, panel_select_texture);
+        glBindTexture(GL_TEXTURE_2D, widgets_texture);
         glPushMatrix();
-            glTranslatef(curx, cury, 0);
+            glTranslatef(scrSize.x / 2 - 187.5 + (39*select_inv) - 3*select_inv, scrSize.y - 46.5, 0);
             glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
         glPopMatrix();
     }
+
+    glDisable(GL_BLEND);
 
     glPushMatrix();
         glTranslatef(0,0,0);
@@ -2660,7 +2715,11 @@ void UpdateChunk(int chunkx, int chunky)
                     {
                         if(GetBlockID(x+dcx, y+dcy, z) != 8 && GetBlockID(x+dcx+1, y+dcy, z) != 8 && GetBlockID(x+dcx-1, y+dcy, z) != 8 && GetBlockID(x+dcx, y+dcy+1, z) != 8 && GetBlockID(x+dcx, y+dcy-1, z) != 8 && GetBlockID(x+dcx, y+dcy, z+1) != 8 && GetBlockID(x+dcx, y+dcy, z-1) != 8)
                         {
-                            if(GetBlockID(x+dcx, y+dcy, z) != 16 && GetBlockID(x+dcx+1, y+dcy, z) != 16 && GetBlockID(x+dcx-1, y+dcy, z) != 16 && GetBlockID(x+dcx, y+dcy+1, z) != 16 && GetBlockID(x+dcx, y+dcy-1, z) != 16 && GetBlockID(x+dcx, y+dcy, z+1) != 16 && GetBlockID(x+dcx, y+dcy, z-1) != 16) world_visible[chunkx][chunky][x][y][z] = FALSE;
+                            if(GetBlockID(x+dcx, y+dcy, z) != 16 && GetBlockID(x+dcx+1, y+dcy, z) != 16 && GetBlockID(x+dcx-1, y+dcy, z) != 16 && GetBlockID(x+dcx, y+dcy+1, z) != 16 && GetBlockID(x+dcx, y+dcy-1, z) != 16 && GetBlockID(x+dcx, y+dcy, z+1) != 16 && GetBlockID(x+dcx, y+dcy, z-1) != 16)
+                            {
+                                if(GetBlockID(x+dcx, y+dcy, z) != 18 && GetBlockID(x+dcx+1, y+dcy, z) != 18 && GetBlockID(x+dcx-1, y+dcy, z) != 18 && GetBlockID(x+dcx, y+dcy+1, z) != 18 && GetBlockID(x+dcx, y+dcy-1, z) != 18 && GetBlockID(x+dcx, y+dcy, z+1) != 18 && GetBlockID(x+dcx, y+dcy, z-1) != 18) world_visible[chunkx][chunky][x][y][z] = FALSE;
+                                else world_visible[chunkx][chunky][x][y][z] = TRUE;
+                            }
                             else world_visible[chunkx][chunky][x][y][z] = TRUE;
                         }
                         else world_visible[chunkx][chunky][x][y][z] = TRUE;
@@ -3579,6 +3638,15 @@ int WINAPI WinMain(HINSTANCE hInstance,
         else
         {
 
+            static float lastTime3 = 0.0f;
+            float currentTime3 = GetTickCount() * 0.001f;
+            if(currentTime3 - lastTime3 > 0.1f)
+            {
+                anim_lw++;
+                if(anim_lw > 27) anim_lw = 0;
+                lastTime3 = currentTime3;
+            }
+
             if(on_server == FALSE)
             {
 
@@ -4442,14 +4510,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if(tmp > 0)
             {
                 select_inv++;
-                if(select_inv > 6) select_inv = 1;
-                if(select_inv == 5) select_inv = 6;
+                if(select_inv > 9) select_inv = 0;
             }
             else
             {
                 select_inv--;
-                if(select_inv < 1) select_inv = 6;
-                if(select_inv == 5) select_inv = 4;
+                if(select_inv < 0) select_inv = 8;
             }
         break;
 

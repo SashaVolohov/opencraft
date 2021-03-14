@@ -16,7 +16,7 @@
 #include <conio.h>
 #include <math.h>
 
-#define OPENCRAFT_VERSION "0.0.18a"
+#define OPENCRAFT_VERSION "0.0.19a"
 
 BOOL bQuit = FALSE;
 
@@ -31,6 +31,7 @@ struct SServer{
     BOOL public;
     char motd[1000];
     BOOL verify_names;
+    int max_connections;
 } server;
 
 struct SSpawn {
@@ -73,7 +74,7 @@ typedef struct {
 
 SPlayer Player[1001];
 
-typedef struct{
+typedef struct {
     float x,y,z;
     int block_id;
 } SWT;
@@ -82,6 +83,13 @@ SWT WorldTranslate[32][32][65536];
 int worldTranslatereq[32][32];
 
 float jump_go[10] = {1.10, 1.20, 1.30, 1.40, 1.50, 1.60, 1.70, 1.80, 1.90, 1.95};
+
+typedef struct {
+    char ip[512];
+    int cnt;
+} SIP;
+
+SIP IPS[1001];
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -746,7 +754,19 @@ void UpdateChunk(int chunkx, int chunky)
                     {
                         if(GetBlockID(x+dcx, y+dcy, z) != 8 && GetBlockID(x+dcx+1, y+dcy, z) != 8 && GetBlockID(x+dcx-1, y+dcy, z) != 8 && GetBlockID(x+dcx, y+dcy+1, z) != 8 && GetBlockID(x+dcx, y+dcy-1, z) != 8 && GetBlockID(x+dcx, y+dcy, z+1) != 8 && GetBlockID(x+dcx, y+dcy, z-1) != 8)
                         {
-                            if(GetBlockID(x+dcx, y+dcy, z) != 16 && GetBlockID(x+dcx+1, y+dcy, z) != 16 && GetBlockID(x+dcx-1, y+dcy, z) != 16 && GetBlockID(x+dcx, y+dcy+1, z) != 16 && GetBlockID(x+dcx, y+dcy-1, z) != 16 && GetBlockID(x+dcx, y+dcy, z+1) != 16 && GetBlockID(x+dcx, y+dcy, z-1) != 16) continue;
+                            if(GetBlockID(x+dcx, y+dcy, z) != 16 && GetBlockID(x+dcx+1, y+dcy, z) != 16 && GetBlockID(x+dcx-1, y+dcy, z) != 16 && GetBlockID(x+dcx, y+dcy+1, z) != 16 && GetBlockID(x+dcx, y+dcy-1, z) != 16 && GetBlockID(x+dcx, y+dcy, z+1) != 16 && GetBlockID(x+dcx, y+dcy, z-1) != 16)
+                            {
+                                if(GetBlockID(x+dcx, y+dcy, z) != 18 && GetBlockID(x+dcx+1, y+dcy, z) != 18 && GetBlockID(x+dcx-1, y+dcy, z) != 18 && GetBlockID(x+dcx, y+dcy+1, z) != 18 && GetBlockID(x+dcx, y+dcy-1, z) != 18 && GetBlockID(x+dcx, y+dcy, z+1) != 18 && GetBlockID(x+dcx, y+dcy, z-1) != 18) continue;
+                                else
+                                {
+                                    WorldTranslate[chunkx][chunky][worldTranslatereqlocal].x = x+dcx;
+                                    WorldTranslate[chunkx][chunky][worldTranslatereqlocal].y = y+dcy;
+                                    WorldTranslate[chunkx][chunky][worldTranslatereqlocal].z = z;
+                                    WorldTranslate[chunkx][chunky][worldTranslatereqlocal].block_id = GetBlockID(x+dcx, y+dcy, z);
+                                    worldTranslatereq[chunkx][chunky]++;
+                                    worldTranslatereqlocal++;
+                                }
+                            }
                             else
                             {
                                 WorldTranslate[chunkx][chunky][worldTranslatereqlocal].x = x+dcx;
@@ -1151,6 +1171,33 @@ void WaitSends(int playerid)
                     cnt++;
                 }
                 char buff[512];
+                BOOL yea = FALSE;
+                for(int i = 0; i < 1001; i++)
+                {
+                    if(strcmp(IPS[i].ip, inet_ntoa(Player[playerid].ca.sin_addr)) == 0)
+                    {
+                        yea = TRUE;
+                        if(IPS[i].cnt > server.max_connections)
+                        {
+                            kick(playerid);
+                        }
+                        else
+                        {
+                            IPS[i].cnt++;
+                        }
+                    }
+                }
+                if(yea == FALSE)
+                {
+                    for(int i = 0; i < 1001; i++)
+                    {
+                        if(IPS[i].cnt == 0)
+                        {
+                            IPS[i].cnt++;
+                            strcpy(IPS[i].ip, inet_ntoa(Player[playerid].ca.sin_addr));
+                        }
+                    }
+                }
                 sprintf(buff, "%s(%s) присоединился к игре\n\0", Player[playerid].nickname, inet_ntoa(Player[playerid].ca.sin_addr));
                 printText(buff, FALSE);
                 for(int q = 0; q < server.max_players; q++)
@@ -2319,6 +2366,13 @@ void kick(int playerid)
     Player[playerid].active = FALSE;
     closesocket(Player[playerid].sock);
     cnt_players--;
+    for(int i = 0; i < 1001; i++)
+    {
+        if(strcmp(IPS[i].ip, inet_ntoa(Player[playerid].ca.sin_addr)) == 0)
+        {
+            IPS[i].cnt--;
+        }
+    }
     for(int q = 0; q < server.max_players; q++)
     {
         if(Player[q].active == FALSE) continue;
@@ -2400,7 +2454,7 @@ int main()
 {
     SetConsoleCP(1251);
     SetConsoleOutputCP(1251);
-    system("title Opencraft Classic Server 1.4");
+    system("title Opencraft Classic Server 1.5");
     MSG msg;
 
     if(FAILED(WSAStartup(MAKEWORD(1, 1), &ws)))
@@ -2494,6 +2548,10 @@ int main()
                         if(strcmp("false", value) == 0) server.verify_names = FALSE;
                         else server.verify_names = TRUE;
                     }
+                    else if(strcmp(argument, "max-connections") == 0)
+                    {
+                        server.max_connections = atoi(value);
+                    }
                     exit = TRUE;
                 }
                 if(exit == TRUE) break;
@@ -2522,7 +2580,8 @@ int main()
         fprintf(server_properties, "server-name=Сервер Opencraft\n", f);
         fprintf(server_properties, "public=true\n", f);
         fprintf(server_properties, "motd=Добро пожаловать на мой Opencraft сервер!\n", f);
-        fprintf(server_properties, "verify-names=true", f);
+        fprintf(server_properties, "verify-names=true\n", f);
+        fprintf(server_properties, "max-connections=3", f);
 
         server.port = 25565;
         server.max_players = 16;
@@ -2530,6 +2589,7 @@ int main()
         server.public = TRUE;
         sprintf(server.motd, "Добро пожаловать на мой Opencraft сервер!");
         server.verify_names = TRUE;
+        server.max_connections = 3;
 
         fclose(server_properties);
     }
