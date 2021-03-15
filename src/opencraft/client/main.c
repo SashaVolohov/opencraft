@@ -20,7 +20,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.19a"
+#define OPENCRAFT_VERSION "0.0.19a_02"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -1295,6 +1295,21 @@ void Game_Show()
                                 if(camera.Xrot >= 110 && camera.z - 3 > z) continue;
                             }
                             if(!world_visible[chunkx][chunky][x][y][z] && on_server == FALSE) continue;
+                            int realx = x + dcx;
+                            int realy = y + dcy;
+                            if(world[chunkx][chunky][x][y][z] == 17)
+                            {
+                                for(int zz = z-2; zz <= z+2; zz++)
+                                {
+                                    for(int yy = realy-2; yy <= realy+2; yy++)
+                                    {
+                                        for(int xx = realx-2; xx <= realx+2; xx++)
+                                        {
+                                            if(GetBlockID(xx, yy, zz) == 8) SetBlock(0, xx, yy, zz);
+                                        }
+                                    }
+                                }
+                            }
                             if(blocks[world[chunkx][chunky][x][y][z]].type == 1)
                             {
                                 glVertexPointer(3, GL_FLOAT, 0, block);
@@ -1788,6 +1803,7 @@ void Game_Show()
             glVertexPointer(3, GL_FLOAT, 0, block);
             glNormalPointer(GL_FLOAT, 0, normal);
             glNormal3f(0,0,1);
+            if(GetBlockID(x, y, z) != 7 && GetBlockID(x, y, z) != 8) continue;
             if(LavaVisible[w].block_id == 1)
             {
                 glBindTexture(GL_TEXTURE_2D, blocks[7].texture[0]);
@@ -1979,7 +1995,7 @@ int PlayerSetBlock()
                 X = bx - dcx;
                 Y = by - dcy;
                 Z = bz;
-                if(world[chunkx][chunky][X][Y][Z] == 0)
+                if(world[chunkx][chunky][X][Y][Z] == 0 || world[chunkx][chunky][X][Y][Z] == 7 || world[chunkx][chunky][X][Y][Z] == 8)
                 {
                     if((int)camera.x == (int)bx && (int)camera.y == (int)by && (int)camera.z == (int)bz) return;
                     if((int)camera.x == (int)bx && (int)camera.y == (int)by && (int)camera.z+1 == (int)bz) return;
