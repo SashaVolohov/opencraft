@@ -16,7 +16,7 @@
 #include <conio.h>
 #include <math.h>
 
-#define OPENCRAFT_VERSION "0.0.19a_02"
+#define OPENCRAFT_VERSION "0.0.20a"
 
 BOOL bQuit = FALSE;
 
@@ -70,6 +70,7 @@ typedef struct {
     char nickname[32];
     int cnt_msg;
     char skin[512];
+    BOOL solid;
 } SPlayer;
 
 SPlayer Player[1001];
@@ -1123,6 +1124,8 @@ void WaitSends(int playerid)
                 int dcy = 16*chunky;
                 int fx = x_i - dcx;
                 int fy = y_i - dcy;
+                if(block_i == 0 && world[chunkx][chunky][fx][fy][z_i] == 9 && !isPlayerOP(playerid)) block_i = 9;
+                if(Player[playerid].solid && block_i != 0) block_i = 9;
                 world[chunkx][chunky][fx][fy][z_i] = block_i;
                 for(int y = 0; y < server.max_players; y++)
                 {
@@ -1737,6 +1740,28 @@ void WaitSends(int playerid)
                                     buff[iw] = 0;
                                 }
                                 sprintf(buff, "ops chat_message Введите аргументы команды.");
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                            }
+                        }
+                    }
+                    if(strcmp(cmd, "/solid") == 0)
+                    {
+                        if(!isPlayerOP(playerid))
+                        {
+                            sprintf(buff, "ops chat_message Извините, но Вы не являетесь администратором этого сервера.");
+                            if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                        }
+                        else
+                        {
+                            Player[playerid].solid = !Player[playerid].solid;
+                            if(Player[playerid].solid)
+                            {
+                                sprintf(buff, "ops chat_message Режим установки блоков переведён на установку бедрока.");
+                                if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
+                            }
+                            else
+                            {
+                                sprintf(buff, "ops chat_message Режим установки блоков переведён в обычный режим.");
                                 if(SOCKET_ERROR == (send(Player[playerid].sock, &buff, sizeof(buff), 0))) kick(playerid);
                             }
                         }
@@ -2366,6 +2391,7 @@ void kick(int playerid)
     Player[playerid].active = FALSE;
     closesocket(Player[playerid].sock);
     cnt_players--;
+    Player[playerid].solid = FALSE;
     for(int i = 0; i < 1001; i++)
     {
         if(strcmp(IPS[i].ip, inet_ntoa(Player[playerid].ca.sin_addr)) == 0)
@@ -2454,7 +2480,7 @@ int main()
 {
     SetConsoleCP(1251);
     SetConsoleOutputCP(1251);
-    system("title Opencraft Classic Server 1.5");
+    system("title Opencraft Classic Server 1.8");
     MSG msg;
 
     if(FAILED(WSAStartup(MAKEWORD(1, 1), &ws)))

@@ -1,6 +1,7 @@
 #include <GL/gl.h>
 
 #include "camera.h"
+#include "blocks.h"
 #include <windows.h>
 #include <math.h>
 
@@ -62,28 +63,28 @@ void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
         float y = new_cy - dcy;
         float ccx = (int)new_cx;
         float ccy = (int)new_cy;
-        if(GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 6 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 8)
+        if(GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 6 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 8 && blocks[GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z)].type != 3)
         {
             if(new_cx < camera.x && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z) != 0)
             {
                 if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
             }
         }
-        if(GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 6 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 8)
+        if(GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 6 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 8 && blocks[GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z)].type != 3)
         {
             if(new_cx > camera.x && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z) != 0)
             {
                 if(new_cx >= ccx - 0.3) new_cx = ccx + 0.7;
             }
         }
-        if(GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 6 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 7 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 8)
+        if(GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 6 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 7 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z) != 8 && blocks[GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z)].type != 3)
         {
             if(new_cy < camera.y && GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z) != 0)
             {
                 if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
             }
         }
-        if(GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 6 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 7 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 8)
+        if(GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 6 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 7 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z) != 8 && blocks[GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z)].type != 3)
         {
             if(new_cy > camera.y && GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z) != 0)
             {
@@ -91,28 +92,28 @@ void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
             }
         }
 
-        if(GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 6 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 8)
+        if(GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 6 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 7 && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 8 && blocks[GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1)].type != 3)
         {
             if(new_cx < camera.x && GetBlockID((int)ccx - 1, (int)new_cy, (int)camera.z+1) != 0)
             {
                 if(new_cx <= ccx + 0.3) new_cx = ccx + 0.3;
             }
         }
-        if(GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 6 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 8)
+        if(GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 6 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 7 && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 8 && blocks[GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1)].type != 3)
         {
             if(new_cx > camera.x && GetBlockID((int)ccx + 1, (int)new_cy, (int)camera.z+1) != 0)
             {
                 if(new_cx >= ccx - 0.3) new_cx = ccx + 0.7;
             }
         }
-        if(GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 6 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 7 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 8)
+        if(GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 6 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 7 && GetBlockID((int)new_cx, (int)ccy - 1, (int)camera.z+1) != 8 && blocks[GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z+1)].type != 3)
         {
             if(new_cy < camera.y && GetBlockID((int)ccx, (int)new_cy - 1, (int)camera.z+1) != 0)
             {
                 if(new_cy <= ccy + 0.3) new_cy = ccy + 0.3;
             }
         }
-        if(GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 6 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 7 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 8)
+        if(GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 6 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 7 && GetBlockID((int)new_cx, (int)ccy + 1, (int)camera.z+1) != 8 && blocks[GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z+1)].type != 3)
         {
             if(new_cy > camera.y && GetBlockID((int)ccx, (int)new_cy + 1, (int)camera.z+1) != 0)
             {

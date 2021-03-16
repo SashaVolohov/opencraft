@@ -20,7 +20,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.19a_02"
+#define OPENCRAFT_VERSION "0.0.20a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -58,6 +58,7 @@ int timer_f = 0;
 int timer_n = 0;
 int timer_pl = 0;
 int timer_enter = 0;
+int timer_b = 0;
 
 int select_inv = 0;
 
@@ -371,6 +372,16 @@ typedef struct {
 SSlot Inventory[9];
 
 int anim_lw = 0;
+
+float creative_inventory[] = {0,0, 480,0, 480,300, 0,300};
+BOOL open_inventory = FALSE;
+typedef struct {
+    float vertex[4];
+    int id;
+} SCreativeSlot;
+
+SCreativeSlot createInventoryVertex[256];
+int selectCreateInventory = -1;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -940,6 +951,27 @@ void Game_Init()
     registerBlock(16, 5, "textures/blocks/leaves.png");
     registerBlock(17, 1, "textures/blocks/sponge.png");
     registerBlock(18, 1, "textures/blocks/glass.png");
+    registerBlock(19, 1, "textures/blocks/wool_colored_white.png");
+    registerBlock(20, 1, "textures/blocks/wool_colored_light_gray.png");
+    registerBlock(21, 1, "textures/blocks/wool_colored_dark_gray.png");
+    registerBlock(22, 1, "textures/blocks/wool_colored_red.png");
+    registerBlock(23, 1, "textures/blocks/wool_colored_orange.png");
+    registerBlock(24, 1, "textures/blocks/wool_colored_yellow.png");
+    registerBlock(25, 1, "textures/blocks/wool_colored_charteros.png");
+    registerBlock(26, 1, "textures/blocks/wool_colored_green.png");
+    registerBlock(27, 1, "textures/blocks/wool_colored_spring_green.png");
+    registerBlock(28, 1, "textures/blocks/wool_colored_turquoise.png");
+    registerBlock(29, 1, "textures/blocks/wool_colored_capri.png");
+    registerBlock(30, 1, "textures/blocks/wool_colored_ultramarine.png");
+    registerBlock(31, 1, "textures/blocks/wool_colored_purple.png");
+    registerBlock(32, 1, "textures/blocks/wool_colored_magenta.png");
+    registerBlock(33, 1, "textures/blocks/wool_colored_crimson.png");
+    registerBlock(34, 1, "textures/blocks/wool_colored_pink.png");
+    registerBlock(35, 3, "textures/blocks/dandelion.png");
+    registerBlock(36, 3, "textures/blocks/rose.png");
+    registerBlock(37, 3, "textures/blocks/brown_mushroom.png");
+    registerBlock(38, 3, "textures/blocks/red_mushroom.png");
+    registerBlock(39, 1, "textures/blocks/gold_block.png");
 
     Inventory[0].id = 5;
     Inventory[1].id = 3;
@@ -1102,8 +1134,16 @@ void Game_Init()
         }
         else
         {
-            worldsizex = 512;
-            worldsizey = 512;
+            if(SAVE_GAME == FALSE)
+            {
+                worldsizex = 128;
+                worldsizey = 128;
+            }
+            else
+            {
+                worldsizex = 512;
+                worldsizey = 512;
+            }
             GenerateNewWorld();
         }
 
@@ -1189,7 +1229,7 @@ void Player_Move()
     else Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
         ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
         ,0.12);
-    if(afk == FALSE && chat_open == FALSE) Camera_AutoMoveByMouse((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2, 0.2);
+    if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE) Camera_AutoMoveByMouse((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2, 0.2);
 }
 
 void Game_Show()
@@ -1240,15 +1280,15 @@ void Game_Show()
 
     int lava_reqshow = 0;
 
-    if(GetKeyState('1') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 0;
-    if(GetKeyState('2') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 1;
-    if(GetKeyState('3') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 2;
-    if(GetKeyState('4') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 3;
-    if(GetKeyState('5') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 4;
-    if(GetKeyState('6') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 5;
-    if(GetKeyState('7') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 6;
-    if(GetKeyState('8') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 7;
-    if(GetKeyState('9') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 8;
+    if(GetKeyState('1') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 0;
+    if(GetKeyState('2') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 1;
+    if(GetKeyState('3') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 2;
+    if(GetKeyState('4') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 3;
+    if(GetKeyState('5') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 4;
+    if(GetKeyState('6') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 5;
+    if(GetKeyState('7') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 6;
+    if(GetKeyState('8') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 7;
+    if(GetKeyState('9') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 8;
 
     int dcnt = 0;
     glPushMatrix();
@@ -1320,37 +1360,37 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16 || GetBlockID(x+dcx, y+dcy+1, z) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16 || GetBlockID(x+dcx, y+dcy+1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy+1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16 || GetBlockID(x+dcx+1, y+dcy, z) == 18)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16 || GetBlockID(x+dcx+1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx+1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy-1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx-1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16 || GetBlockID(x+dcx, y+dcy, z+1) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16 || GetBlockID(x+dcx, y+dcy, z+1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z+1)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z-1)].type == 3)
                                     {
                                         glTranslatef(0.0, 0.0, -1);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
@@ -1368,37 +1408,38 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16 || GetBlockID(x+dcx, y+dcy+1, z) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16 || GetBlockID(x+dcx, y+dcy+1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy+1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16 || GetBlockID(x+dcx+1, y+dcy, z) == 18)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16 || GetBlockID(x+dcx+1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx+1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy-1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx-1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16 || GetBlockID(x+dcx, y+dcy, z+1) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16 || GetBlockID(x+dcx, y+dcy, z+1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z+1)].type == 3)
                                     {
                                         glBindTexture(GL_TEXTURE_2D, blocks[world[chunkx][chunky][x][y][z]].texture[1]);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18)
+
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z-1)].type == 3)
                                     {
                                         glBindTexture(GL_TEXTURE_2D, blocks[world[chunkx][chunky][x][y][z]].texture[2]);
                                         glTranslatef(0.0, 0.0, -1);
@@ -1465,37 +1506,37 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy+1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 18)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx+1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy-1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx-1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z+1)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18)
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z-1)].type == 3)
                                     {
                                         glTranslatef(0.0, 0.0, -1);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
@@ -1513,7 +1554,7 @@ void Game_Show()
                                     {
                                         for(int zz = z+1; zz < 256; zz++)
                                         {
-                                            if(world[chunkx][chunky][x][y][zz] != 0 && world[chunkx][chunky][x][y][z+1] != 6) break;
+                                            if(world[chunkx][chunky][x][y][zz] != 0 && world[chunkx][chunky][x][y][z+1] != 6 && blocks[world[chunkx][chunky][x][y][z+1]].type != 3) break;
                                             if(zz == 255)
                                             {
                                                 if(GetBlockID(x+dcx+1, y+dcy, z) == 2 || GetBlockID(x+dcx-1, y+dcy, z) == 2 || GetBlockID(x+dcx, y+dcy+1, z) == 2 || GetBlockID(x+dcx, y+dcy-1, z) == 2 || GetBlockID(x+dcx+1, y+dcy, z+1) == 2 || GetBlockID(x+dcx-1, y+dcy, z+1) == 2 || GetBlockID(x+dcx, y+dcy+1, z+1) == 2 || GetBlockID(x+dcx, y+dcy-1, z+1) == 2 || GetBlockID(x+dcx+1, y+dcy, z-1) == 2 || GetBlockID(x+dcx-1, y+dcy, z-1) == 2 || GetBlockID(x+dcx, y+dcy+1, z-1) == 2 || GetBlockID(x+dcx, y+dcy-1, z-1) == 2 && z >= 64)
@@ -1526,7 +1567,7 @@ void Game_Show()
                                     }
                                     if(world[chunkx][chunky][x][y][z] == 2)
                                     {
-                                        if(world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z+1] != 6)
+                                        if(world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z+1] != 6 && blocks[world[chunkx][chunky][x][y][z+1]].type != 3)
                                         {
                                             world[chunkx][chunky][x][y][z] = 3;
                                             map_changed = TRUE;
@@ -1934,31 +1975,34 @@ int PlayerSetBlock()
         {
             if(place_blocks == FALSE)
             {
-                if(world[chunkx][chunky][X][Y][Z] != 7 && world[chunkx][chunky][X][Y][Z] != 8 && world[chunkx][chunky][X][Y][Z] != 9)
+                if(world[chunkx][chunky][X][Y][Z] != 7 && world[chunkx][chunky][X][Y][Z] != 8)
                 {
-                    for(int i = 0; i < 100; i++)
+                    if(world[chunkx][chunky][X][Y][Z] != 9)
                     {
-                        if(Sprites[i].block_id == 0)
+                        for(int i = 0; i < 100; i++)
                         {
-                            int a = 0;
-                            for(int zf = 0; zf < 3; zf++)
+                            if(Sprites[i].block_id == 0)
                             {
-                                for(int xf = 0; xf < 3; xf++)
+                                int a = 0;
+                                for(int zf = 0; zf < 3; zf++)
                                 {
-                                    Sprites[i].x[a] = (int)X + (0.3 * xf) + dcx;
-                                    Sprites[i].y[a] = (int)Y + dcy;
-                                    Sprites[i].z[a] = (int)Z + (0.3 * zf);
-                                    a++;
+                                    for(int xf = 0; xf < 3; xf++)
+                                    {
+                                        Sprites[i].x[a] = (int)X + (0.3 * xf) + dcx;
+                                        Sprites[i].y[a] = (int)Y + dcy;
+                                        Sprites[i].z[a] = (int)Z + (0.3 * zf);
+                                        a++;
+                                    }
                                 }
-                            }
 
-                            Sprites[i].block_id = world[chunkx][chunky][X][Y][Z];
-                            Sprites[i].step = 0;
-                            break;
+                                Sprites[i].block_id = world[chunkx][chunky][X][Y][Z];
+                                Sprites[i].step = 0;
+                                break;
+                            }
                         }
+                        world[chunkx][chunky][X][Y][Z] = 0;
+                        map_changed = TRUE;
                     }
-                    world[chunkx][chunky][X][Y][Z] = 0;
-                    map_changed = TRUE;
                     if(on_server == FALSE)
                     {
                         UpdateChunk(chunkx, chunky);
@@ -2533,7 +2577,7 @@ void Menu_Show()
 
     glColor3f(0.7, 0.7, 0.7);
 
-    if(GetKeyState(VK_TAB) < 0 && afk == FALSE && chat_open == FALSE && on_server == TRUE)
+    if(GetKeyState(VK_TAB) < 0 && afk == FALSE && chat_open == FALSE && on_server == TRUE && open_inventory == FALSE)
     {
         glPushMatrix();
             glTranslatef(scrSize.x / 2 - 250, scrSize.y / 2 - 150, 0);
@@ -2575,6 +2619,78 @@ void Menu_Show()
                     glTranslatef(0, 15, 0);
                     cool++;
                 }
+            }
+        glPopMatrix();
+    }
+
+    if(open_inventory == TRUE)
+    {
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 240, scrSize.y / 2 - 150, 0);
+            glDisable(GL_TEXTURE_2D);
+            glVertexPointer(2, GL_FLOAT, 0, creative_inventory);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glColor4f(0, 0, 0, 0.7);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glDisable(GL_BLEND);
+            glColor3f(0.7, 0.7, 0.7);
+            glEnable(GL_TEXTURE_2D);
+            glTranslatef(175, 3, 0);
+            int cool = 0;
+            int columb = 0;
+            Text_Out("Выберите блок", 0);
+            glTranslatef(-165, 30, 0);
+            for(int i = 1; i < 256; i++)
+            {
+                glColor3f(0.7, 0.7, 0.7);
+                if(blocks[i].type == 0) break;
+                if(i == 7 || i == 8 || i == 9 || i == 2) continue;
+
+                if(selectCreateInventory == i) glColor3f(1, 1, 1);
+
+                createInventoryVertex[i].id = i;
+                createInventoryVertex[i].vertex[0] = scrSize.x / 2 - 230 + (60*cool);
+                createInventoryVertex[i].vertex[1] = scrSize.y / 2 - 117 + (50*columb) - 8;
+                createInventoryVertex[i].vertex[2] = scrSize.x / 2 - 230 + (60*cool) + 30;
+                createInventoryVertex[i].vertex[3] = scrSize.y / 2 - 117 + (50*columb) + 30 - 8;
+
+                glBindTexture(GL_TEXTURE_2D, blocks[i].texture[0]);
+
+                if(blocks[i].type != 3) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
+                else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
+                glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+                glPushMatrix();
+                    if(blocks[i].type == 3) glTranslatef(0, -8, 0);
+                    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                    if(blocks[i].type == 3) glTranslatef(0, 8, 0);
+                glPopMatrix();
+
+                if(blocks[i].type != 3)
+                {
+                    glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
+                    glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+                    glPushMatrix();
+                        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                    glPopMatrix();
+
+                    if(blocks[i].type == 2) glBindTexture(GL_TEXTURE_2D, blocks[i].texture[1]);
+
+                    glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
+                    glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+                    glPushMatrix();
+                        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                    glPopMatrix();
+                }
+                cool++;
+                if(cool == 8)
+                {
+                    glTranslatef(-480, 50, 0);
+                    cool = 0;
+                    columb++;
+                }
+                glTranslatef(60, 0, 0);
+                glColor3f(0.7, 0.7, 0.7);
             }
         glPopMatrix();
     }
@@ -2733,7 +2849,11 @@ void UpdateChunk(int chunkx, int chunky)
                         {
                             if(GetBlockID(x+dcx, y+dcy, z) != 16 && GetBlockID(x+dcx+1, y+dcy, z) != 16 && GetBlockID(x+dcx-1, y+dcy, z) != 16 && GetBlockID(x+dcx, y+dcy+1, z) != 16 && GetBlockID(x+dcx, y+dcy-1, z) != 16 && GetBlockID(x+dcx, y+dcy, z+1) != 16 && GetBlockID(x+dcx, y+dcy, z-1) != 16)
                             {
-                                if(GetBlockID(x+dcx, y+dcy, z) != 18 && GetBlockID(x+dcx+1, y+dcy, z) != 18 && GetBlockID(x+dcx-1, y+dcy, z) != 18 && GetBlockID(x+dcx, y+dcy+1, z) != 18 && GetBlockID(x+dcx, y+dcy-1, z) != 18 && GetBlockID(x+dcx, y+dcy, z+1) != 18 && GetBlockID(x+dcx, y+dcy, z-1) != 18) world_visible[chunkx][chunky][x][y][z] = FALSE;
+                                if(GetBlockID(x+dcx, y+dcy, z) != 18 && GetBlockID(x+dcx+1, y+dcy, z) != 18 && GetBlockID(x+dcx-1, y+dcy, z) != 18 && GetBlockID(x+dcx, y+dcy+1, z) != 18 && GetBlockID(x+dcx, y+dcy-1, z) != 18 && GetBlockID(x+dcx, y+dcy, z+1) != 18 && GetBlockID(x+dcx, y+dcy, z-1) != 18)
+                                {
+                                    if(blocks[GetBlockID(x+dcx, y+dcy, z)].type != 3 && blocks[GetBlockID(x+dcx+1, y+dcy, z)].type != 3 && blocks[GetBlockID(x+dcx-1, y+dcy, z)].type != 3 && blocks[GetBlockID(x+dcx, y+dcy+1, z)].type != 3 && blocks[GetBlockID(x+dcx, y+dcy-1, z)].type != 3 && blocks[GetBlockID(x+dcx, y+dcy, z+1)].type != 3 && blocks[GetBlockID(x+dcx, y+dcy, z-1)].type != 3) world_visible[chunkx][chunky][x][y][z] = FALSE;
+                                    else world_visible[chunkx][chunky][x][y][z] = TRUE;
+                                }
                                 else world_visible[chunkx][chunky][x][y][z] = TRUE;
                             }
                             else world_visible[chunkx][chunky][x][y][z] = TRUE;
@@ -3732,7 +3852,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                     jump_down = FALSE;
                                     jump_tmp = 0;
                                 }
-                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
+                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6 && blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z]].type != 3)
                                 {
                                     is_jumping = FALSE;
                                     jump_down = FALSE;
@@ -3802,7 +3922,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 is_fly = TRUE;
                             }
                         }
-                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping)
+                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping || blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz]].type == 3 && !is_jumping)
                         {
                             if(afk == FALSE)
                             {
@@ -3846,7 +3966,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             }
                         }
 
-                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             camera.x = spawn.x;
                             camera.y = spawn.y;
@@ -3854,7 +3974,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             camera.Xrot = spawn.Xrot;
                             camera.Zrot = spawn.Zrot;
                         }
-                        if(GetKeyState('G') < 0 && timer_g <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('G') < 0 && timer_g <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             for(int y = 0; y < 500; y++)
                             {
@@ -3869,13 +3989,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 }
                             }
                         }
-                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(!inverted_y) inverted_y = TRUE;
                             else inverted_y = FALSE;
                             timer_y = 10;
                         }
-                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(render_distance < 4) render_distance++;
                             else render_distance = 1;
@@ -3883,12 +4003,12 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             glFogf(GL_FOG_END, 9.0f*render_distance);
                             timer_f = 10;
                         }
-                        if(GetKeyState('N') < 0 && timer_n <= 0 && afk == FALSE && map_changed == TRUE && chat_open == FALSE)
+                        if(GetKeyState('N') < 0 && timer_n <= 0 && afk == FALSE && map_changed == TRUE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             SaveWorld();
                             timer_n = 10;
                         }
-                        if(GetKeyState(VK_RETURN) < 0 && timer_enter <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState(VK_RETURN) < 0 && timer_enter <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             spawn.x = camera.x;
                             spawn.y = camera.y;
@@ -3896,6 +4016,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             spawn.Xrot = camera.Xrot;
                             spawn.Zrot = camera.Zrot;
                             timer_enter = 10;
+                        }
+                        if(GetKeyState('B') < 0 && timer_b <= 0 && afk == FALSE && chat_open == FALSE)
+                        {
+                            open_inventory = TRUE;
+                            timer_b = 10;
+                            cursorShow = TRUE;
+                            while (ShowCursor(TRUE) <= 0);
                         }
                         if(afk == FALSE) SpritesManage();
 
@@ -3909,6 +4036,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     timer_n--;
                     timer_pl--;
                     timer_enter--;
+                    timer_b--;
                     timer_del_chunks--;
                 }
                 if(GetKeyState(' ') > 0) space = FALSE;
@@ -3921,7 +4049,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                 }
                 if(GetKeyState(VK_LBUTTON) < 0 && lbutton_timer == FALSE)
                 {
-                    if(afk == FALSE && chat_open == FALSE)
+                    if(afk == FALSE && chat_open == FALSE  && open_inventory == FALSE)
                     {
                         PlayerSetBlock();
                         lbutton_timer = TRUE;
@@ -4032,7 +4160,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     for(int cnt = 1; cnt <= (int)qwe; cnt++)
                     {
                         glPushMatrix();
-                            if (GetForegroundWindow() == hwnd && afk == FALSE && chat_open == FALSE) Player_Move();
+                            if (GetForegroundWindow() == hwnd && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) Player_Move();
                         glPopMatrix();
                         for(int qwe = 500; qwe < 1500; qwe++) EntityAI(qwe);
                         int chunkx = camera.x / 16;
@@ -4067,7 +4195,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                     jump_down = FALSE;
                                     jump_tmp = 0;
                                 }
-                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
+                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6 && blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz]].type != 3)
                                 {
                                     is_jumping = FALSE;
                                     jump_down = FALSE;
@@ -4137,7 +4265,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 is_fly = TRUE;
                             }
                         }
-                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping)
+                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping || blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz]].type == 3 && !is_jumping)
                         {
                             if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 8)
                             {
@@ -4155,7 +4283,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 is_fly = TRUE;
                             }
                         }
-                        if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE && chat_open == FALSE)
+                        if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
                             {
@@ -4178,7 +4306,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             }
                         }
 
-                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             camera.x = spawn.x;
                             camera.y = spawn.y;
@@ -4186,13 +4314,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             camera.Xrot = spawn.Xrot;
                             camera.Zrot = spawn.Zrot;
                         }
-                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(!inverted_y) inverted_y = TRUE;
                             else inverted_y = FALSE;
                             timer_y = 10;
                         }
-                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(render_distance < 4) render_distance++;
                             else render_distance = 1;
@@ -4200,7 +4328,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             glFogf(GL_FOG_END, 9.0f*render_distance);
                             timer_f = 10;
                         }
-                        if(GetKeyState('T') < 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('T') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             type_chat = 0;
                             chat_open = TRUE;
@@ -4210,6 +4338,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 chat_string[wrt] = 0;
                             }
                             chat_size = 0;
+                            while (ShowCursor(TRUE) <= 0);
+                        }
+                        if(GetKeyState('B') < 0 && timer_b <= 0 && afk == FALSE && chat_open == FALSE)
+                        {
+                            open_inventory = TRUE;
+                            timer_b = 10;
+                            cursorShow = TRUE;
                             while (ShowCursor(TRUE) <= 0);
                         }
                         SpritesManage();
@@ -4224,6 +4359,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     timer_n--;
                     timer_pl--;
                     timer_enter--;
+                    timer_b--;
                     timer_del_chunks--;
                 }
                 if(GetKeyState(' ') > 0) space = FALSE;
@@ -4256,7 +4392,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
                 if(GetKeyState(VK_LBUTTON) < 0 && lbutton_timer == FALSE)
                 {
-                    if(afk == FALSE && chat_open == FALSE)
+                    if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                     {
                         PlayerSetBlock();
                         lbutton_timer = TRUE;
@@ -4296,7 +4432,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
 
         case WM_RBUTTONDOWN:
-            if(afk == FALSE && chat_open == FALSE)
+            if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
             {
                 if(place_blocks == FALSE) place_blocks = TRUE;
                 else place_blocks = FALSE;
@@ -4358,6 +4494,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                 }
             }
+            if(open_inventory == TRUE)
+            {
+                if(selectCreateInventory != -1)
+                {
+                    Inventory[select_inv].id = selectCreateInventory;
+                    open_inventory = FALSE;
+                    cursorShow = FALSE;
+                    SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
+                    while (ShowCursor(FALSE) >= 0);
+                }
+            }
         break;
 
         case WM_DESTROY:
@@ -4373,7 +4520,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 case VK_ESCAPE:
                 {
-                    if(afk == FALSE && chat_open == FALSE)
+                    if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                     {
                         afk = TRUE;
                         cursorShow = TRUE;
@@ -4382,6 +4529,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     else if(chat_open == TRUE)
                     {
                         chat_open = FALSE;
+                        cursorShow = FALSE;
+                        SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
+                        while (ShowCursor(FALSE) >= 0);
+                    }
+                    else if(open_inventory == TRUE)
+                    {
+                        open_inventory = FALSE;
                         cursorShow = FALSE;
                         SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
@@ -4516,6 +4670,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 {
                     if(CursorInButton(LOWORD(lParam), HIWORD(lParam), i) && Buttons[i].state != 2) Buttons[i].state = 1;
                     else if(Buttons[i].state != 2) Buttons[i].state = 0;
+                }
+            }
+            if(open_inventory)
+            {
+                for(int i = 1; i < 256; i++)
+                {
+                    if(blocks[i].type == 0) selectCreateInventory = -1;
+                    if(LOWORD(lParam) >= createInventoryVertex[i].vertex[0] && LOWORD(lParam) <= createInventoryVertex[i].vertex[2] && HIWORD(lParam) >= createInventoryVertex[i].vertex[1] && HIWORD(lParam) <= createInventoryVertex[i].vertex[3])
+                    {
+                        selectCreateInventory = i;
+                        break;
+                    }
                 }
             }
         }
