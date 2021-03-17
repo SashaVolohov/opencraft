@@ -20,7 +20,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.20a"
+#define OPENCRAFT_VERSION "0.0.21a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -383,6 +383,9 @@ typedef struct {
 SCreativeSlot createInventoryVertex[256];
 int selectCreateInventory = -1;
 
+float load_line[] = {0,0, 200,0, 200,5, 0,5};
+float done_load_line[] = {0,0, 0,0, 0,10, 0,10};
+
 void GenerateNewChunk(int chunkx, int chunky)
 {
     int coolz = 0;
@@ -575,11 +578,21 @@ void GenerateCaves()
 {
     GenMenu_Show("Генерация пещер...", sizeof("Генерация пещер..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.0007;
+    if(worldsizex == 256) lineonestep = 0.003;
+    if(worldsizex == 128) lineonestep = 0.012;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
+    BOOL exit_f = FALSE;
     int g3 = 0;
     for(int y = 0; y < worldsizey; y++)
     {
+        if(exit_f == TRUE) break;
         for(int x = 0; x < worldsizex; x++)
         {
+            if(exit_f == TRUE) break;
             int randomcool = rand();
             randomcool %= 10000;
             if(randomcool == 9999)
@@ -608,18 +621,51 @@ void GenerateCaves()
 
                         }
                         g3++;
-                        if(g3 >= 7) return;
+                        if(g3 >= 7) exit_f = TRUE;
                     }
                 }
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glPushMatrix();
+        glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+        float done_load_line[] = {0,0, 200,0, 200,5, 0,5};
+        glVertexPointer(2, GL_FLOAT, 0, load_line);
+        glColor3f(1, 1, 1);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+        glColor3f(0, 1, 0);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glPopMatrix();
+    SwapBuffers(hDC);
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateWaterAndLava()
 {
     GenMenu_Show("Генерация воды и лавы...", sizeof("Генерация воды и лавы..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.0007;
+    if(worldsizex == 256) lineonestep = 0.003;
+    if(worldsizex == 128) lineonestep = 0.012;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
     int z = 0;
     for(int y = 0; y < worldsizey; y++)
     {
@@ -687,14 +733,36 @@ void GenerateWaterAndLava()
                     }
                 }
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateAdditionalProcessing()
 {
     GenMenu_Show("Дополнительная обработка...", sizeof("Дополнительная обработка..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.00035;
+    if(worldsizex == 256) lineonestep = 0.0015;
+    if(worldsizex == 128) lineonestep = 0.006;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
     for(int z = 0; z < 256; z++)
     {
         for(int y = 0; y < worldsizey; y++)
@@ -732,14 +800,36 @@ void GenerateAdditionalProcessing()
                 }
                 if(z < 11 && GetBlockID(x, y, z) == 0) SetBlock(7, x, y, z);
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateTrees()
 {
     GenMenu_Show("Генерация деревьев...", sizeof("Генерация деревьев..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.0007;
+    if(worldsizex == 256) lineonestep = 0.003;
+    if(worldsizex == 128) lineonestep = 0.012;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
     for(int y = 0; y < worldsizey; y++)
     {
         for(int x = 0; x < worldsizex; x++)
@@ -788,14 +878,36 @@ void GenerateTrees()
                     }
                 }
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateOres()
 {
     GenMenu_Show("Генерация руд...", sizeof("Генерация руд..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.00035;
+    if(worldsizex == 256) lineonestep = 0.0015;
+    if(worldsizex == 128) lineonestep = 0.006;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
     for(int z = 0; z < 256; z++)
     {
         for(int y = 0; y < worldsizey; y++)
@@ -835,23 +947,65 @@ void GenerateOres()
                     }
                 }
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateNewWorld()
 {
     GenMenu_Show("Генерация ландшафта...", sizeof("Генерация ландшафта..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
     int y_need = worldsizey / 16 - 1;
     int x_need = worldsizex / 16 - 1;
+    if(x_need == 31) lineonestep = 0.1953125;
+    if(x_need == 15) lineonestep = 1.28;
+    if(x_need == 7) lineonestep = 3.125;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, scrSize.x, scrSize.y, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
     for(int y = 0; y <= y_need; y++)
     {
         for(int x = 0; x <= x_need; x++)
         {
+            glPushMatrix();
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+                glDisable(GL_TEXTURE_2D);
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+                glColor3f(1, 1, 1);
+            glPopMatrix();
+            SwapBuffers(hDC);
             GenerateNewChunk(x, y);
+            cnt_steps++;
         }
     }
+    glDisableClientState(GL_VERTEX_ARRAY);
     GenerateTrees();
     GenerateOres();
     GenerateWaterAndLava();
@@ -902,6 +1056,7 @@ void GenerateNewWorld()
     while (ShowCursor(FALSE) >= 0);
     afk = FALSE;
     SaveWorld();
+    glEnable(GL_TEXTURE_2D);
 }
 
 size_t write_data(void *ptr, size_t size, size_t nmemb, FILE* stream)
@@ -996,7 +1151,7 @@ void Game_Init()
     glEnable(GL_COLOR_MATERIAL);
     glEnable(GL_NORMALIZE);
     glEnable(GL_TEXTURE_2D);
-    glEnable(GL_FOG);
+    //glEnable(GL_FOG);
     glFogi(GL_FOG_MODE, fogMode[fogfilter]);
     glFogfv(GL_FOG_COLOR, fogColor);
     glFogf(GL_FOG_DENSITY, 0.35f);
@@ -1008,12 +1163,26 @@ void Game_Init()
 
     srand(time(NULL));
 
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, scrSize.x, scrSize.y, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_LIGHTING);
+    glDisable(GL_LIGHT0);
+    glDisable(GL_DEPTH_TEST);
+
     if(on_server == FALSE)
     {
         TCHAR buffer[MAX_PATH];
         GetCurrentDirectory(sizeof(buffer), buffer);
         char path[MAX_PATH];
         sprintf(path, "%s\\saves\\world", buffer);
+        float lineonestep = 33.3;
+        int cnt_steps = 0;
         if(DirectoryExists(path) && SAVE_GAME == TRUE)
         {
             FILE *level;
@@ -1025,7 +1194,21 @@ void Game_Init()
 
             GenMenu_Show("Загрузка border.dat...", sizeof("Загрузка border.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\border.dat", buffer);
 
@@ -1042,7 +1225,22 @@ void Game_Init()
 
             GenMenu_Show("Загрузка level.dat...", sizeof("Загрузка level.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\level.dat", buffer);
 
@@ -1056,7 +1254,22 @@ void Game_Init()
 
             GenMenu_Show("Загрузка spawn.dat...", sizeof("Загрузка spawn.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\spawn.dat", buffer);
 
@@ -1070,7 +1283,21 @@ void Game_Init()
 
             GenMenu_Show("Загрузка world.ocw...", sizeof("Загрузка world.ocw..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\world.ocw", buffer);
 
@@ -1086,7 +1313,22 @@ void Game_Init()
 
             GenMenu_Show("Загрузка version.dat...", sizeof("Загрузка version.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\version.dat", buffer);
 
@@ -1119,7 +1361,22 @@ void Game_Init()
 
             GenMenu_Show("Загрузка entity.dat...", sizeof("Загрузка entity.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\entity.dat", buffer);
 
@@ -1130,6 +1387,21 @@ void Game_Init()
                 fread(Entities, sizeof(Entities[0]), 500, file_entity);
                 fclose(file_entity);
             }
+
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
+            SwapBuffers(hDC);
 
         }
         else
@@ -2875,6 +3147,7 @@ void UpdateChunk(int chunkx, int chunky)
 
 void GenMenu_Show(char secondLine[], int slSize, int type)
 {
+    glColor3f(1, 1, 1);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0, scrSize.x, scrSize.y, 0, -1, 1);
@@ -2942,9 +3215,6 @@ void GenMenu_Show(char secondLine[], int slSize, int type)
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 }
 
 void ShowButton(char name[], int tSize, int x, int y, int ID)
