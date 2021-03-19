@@ -1,10 +1,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 
 #define SAVE_GAME TRUE /* Если Вы пишите код, ставьте FALSE, чтобы экономить время сохранения и загрузки мира */
+#define SENSOR_MODE FALSE
 
 #include "../../libs/stb_image/stb_image.h"
 #include "../../libs/zlib/zlib.h"
 #include "../../libs/curl/curl.h"
+#include "../../libs/bass/bass.h"
 
 #include "blocks.h"
 
@@ -17,10 +19,11 @@
 #include <time.h>
 #include <winsock2.h>
 #include <pthread.h>
+#include <mmsystem.h>
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.21a"
+#define OPENCRAFT_VERSION "0.0.22a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -280,7 +283,7 @@ typedef struct {
     int state;
 } SButtons;
 
-SButtons Buttons[10];
+SButtons Buttons[30];
 
 BOOL cursorShow = FALSE;
 
@@ -385,6 +388,11 @@ int selectCreateInventory = -1;
 
 float load_line[] = {0,0, 200,0, 200,5, 0,5};
 float done_load_line[] = {0,0, 0,0, 0,10, 0,10};
+
+HSAMPLE sampstep;
+HCHANNEL chstep;
+
+BOOL is_x;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -1151,7 +1159,7 @@ void Game_Init()
     glEnable(GL_COLOR_MATERIAL);
     glEnable(GL_NORMALIZE);
     glEnable(GL_TEXTURE_2D);
-    //glEnable(GL_FOG);
+    glEnable(GL_FOG);
     glFogi(GL_FOG_MODE, fogMode[fogfilter]);
     glFogfv(GL_FOG_COLOR, fogColor);
     glFogf(GL_FOG_DENSITY, 0.35f);
@@ -1162,6 +1170,21 @@ void Game_Init()
     glAlphaFunc(GL_GREATER, 0.01);
 
     srand(time(NULL));
+
+    if(HIWORD(BASS_GetVersion()) != BASSVERSION)
+    {
+        MessageBox(NULL, "Ошибка версии BASS!", NULL, 0);
+        PostQuitMessage(0);
+        return 0;
+    }
+
+
+    if(!BASS_Init(-1, 22050, BASS_DEVICE_3D, 0, NULL))
+    {
+        MessageBox(NULL, "Ошибка инициализации BASS!", NULL, 0);
+        PostQuitMessage(0);
+        return 0;
+    }
 
     glEnableClientState(GL_VERTEX_ARRAY);
 
@@ -1495,13 +1518,25 @@ void WndResize(int x, int y)
 
 void Player_Move()
 {
-    if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8) Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
-                         ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
-                         ,0.02);
-    else Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
-        ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
-        ,0.12);
-    if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE) Camera_AutoMoveByMouse((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2, 0.2);
+    if(SENSOR_MODE == FALSE)
+    {
+        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8) Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
+                             ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
+                             ,0.02);
+        else Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
+            ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
+            ,0.12);
+    }
+    else
+    {
+        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8) Camera_MoveDirection(GetKeyState(VK_RBUTTON) < 0 ? 1: 0
+                             ,0
+                             ,0.02);
+        else Camera_MoveDirection(GetKeyState(VK_RBUTTON) < 0 ? 1: 0
+            ,0
+            ,0.12);
+    }
+    if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE && SENSOR_MODE == FALSE) Camera_AutoMoveByMouse((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2, 0.2);
 }
 
 void Game_Show()
@@ -2272,6 +2307,38 @@ int PlayerSetBlock()
                                 break;
                             }
                         }
+                        HSAMPLE sampdes;
+                        HCHANNEL chdes;
+                        if(world[chunkx][chunky][X][Y][Z] >= 19 && world[chunkx][chunky][X][Y][Z] <= 34)
+                        {
+                            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+                            {
+                                char filename[] = "sounds\\step\\cloth.ogg";
+                                sampdes = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                                chdes = BASS_SampleGetChannel(sampdes, FALSE);
+                                BASS_ChannelPlay(chdes, FALSE);
+                            }
+                        }
+                        if(world[chunkx][chunky][X][Y][Z] == 18)
+                        {
+                            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+                            {
+                                char filename[] = "sounds\\step\\glass.ogg";
+                                sampdes = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                                chdes = BASS_SampleGetChannel(sampdes, FALSE);
+                                BASS_ChannelPlay(chdes, FALSE);
+                            }
+                        }
+                        if(world[chunkx][chunky][X][Y][Z] == 2)
+                        {
+                            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+                            {
+                                char filename[] = "sounds\\step\\grass.ogg";
+                                sampstep = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                                chstep = BASS_SampleGetChannel(sampstep, FALSE);
+                                BASS_ChannelPlay(chstep, FALSE);
+                            }
+                        }
                         world[chunkx][chunky][X][Y][Z] = 0;
                         map_changed = TRUE;
                     }
@@ -2849,6 +2916,11 @@ void Menu_Show()
 
     glColor3f(0.7, 0.7, 0.7);
 
+
+    if(SENSOR_MODE == TRUE)
+    {
+        ShowButton("Вперёд", sizeof("Вперёд") - 1, scrSize.x / 2 - 202.5, scrSize.y-200, 13);
+    }
     if(GetKeyState(VK_TAB) < 0 && afk == FALSE && chat_open == FALSE && on_server == TRUE && open_inventory == FALSE)
     {
         glPushMatrix();
@@ -3236,8 +3308,6 @@ void ShowButton(char name[], int tSize, int x, int y, int ID)
             glTranslatef(curx, y+cury, 0);
             Text_Out(name, 0);
         glPopMatrix();
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
     Buttons[ID].x = x;
     Buttons[ID].y = y;
     Buttons[ID].xe = x + 405;
@@ -4033,6 +4103,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
             if (msg.message == WM_QUIT)
             {
                 if(on_server == TRUE) closesocket(s);
+                BASS_Free();
                 bQuit = TRUE;
             }
             else
@@ -4051,6 +4122,19 @@ int WINAPI WinMain(HINSTANCE hInstance,
                 anim_lw++;
                 if(anim_lw > 27) anim_lw = 0;
                 lastTime3 = currentTime3;
+            }
+
+            static float lastTimemm = 0.0f;
+            float currentTimemm = GetTickCount() * 0.001f;
+            if(currentTimemm - lastTimemm > 300.0f)
+            {
+                HSAMPLE samp;
+                HCHANNEL ch;
+                char filename[] = "music\\calm1.ogg";
+                samp = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                ch = BASS_SampleGetChannel(samp, FALSE);
+                BASS_ChannelPlay(ch, FALSE);
+                lastTimemm = currentTimemm;
             }
 
             if(on_server == FALSE)
@@ -4076,6 +4160,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         }
                     }
                 }
+
                 static float lastTime = 0.0f;
                 float currentTime = GetTickCount() * 0.001f;
                 if(currentTime - lastTime > 0.01f)
@@ -4325,6 +4410,8 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         lbutton_timer = TRUE;
                     }
                 }
+                if(is_x == FALSE) BASS_ChannelStop(chstep);
+                is_x = FALSE;
             }
             else
             {

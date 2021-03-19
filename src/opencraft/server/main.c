@@ -16,7 +16,7 @@
 #include <conio.h>
 #include <math.h>
 
-#define OPENCRAFT_VERSION "0.0.21a"
+#define OPENCRAFT_VERSION "0.0.22a"
 
 BOOL bQuit = FALSE;
 
@@ -2480,7 +2480,7 @@ int main()
 {
     SetConsoleCP(1251);
     SetConsoleOutputCP(1251);
-    system("title Opencraft Classic Server 1.8");
+    system("title Opencraft Classic Server 1.8.2");
     MSG msg;
 
     if(FAILED(WSAStartup(MAKEWORD(1, 1), &ws)))

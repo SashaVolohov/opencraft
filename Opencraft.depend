@@ -171,20 +171,22 @@
 
 1612461317 d:\Документы\Мои проекты\opencraft\src\opencraft\client\blocks.h
 
-1615819418 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.c
+1616159277 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.c
 	<GL/gl.h>
 	"camera.h"
 	"blocks.h"
 	<windows.h>
 	<math.h>
+	"../../libs/bass/bass.h"
 
 1615481125 d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.h
 	<windows.h>
 
-1615983339 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
+1616159140 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
 	"../../libs/stb_image/stb_image.h"
 	"../../libs/zlib/zlib.h"
 	"../../libs/curl/curl.h"
+	"../../libs/bass/bass.h"
 	"blocks.h"
 	<windows.h>
 	<direct.h>
@@ -195,6 +197,7 @@
 	<time.h>
 	<winsock2.h>
 	<pthread.h>
+	<mmsystem.h>
 	"camera.h"
 
 1612520291 d:\Документы\Мои проекты\opencraft\src\opencraft\world.h
@@ -248,4 +251,9 @@
 1611203194 d:\Документы\Мои проекты\opencraft\src\libs\curl\options.h
 
 1612149402 d:\Документы\Мои проекты\opencraft\src\libs\curl\typecheck-gcc.h
+
+1576577016 d:\Документы\Мои проекты\opencraft\src\libs\bass\bass.h
+	<wtypes.h>
+	<stdint.h>
+	<objc/objc.h>
 

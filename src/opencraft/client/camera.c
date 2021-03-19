@@ -4,8 +4,12 @@
 #include "blocks.h"
 #include <windows.h>
 #include <math.h>
+#include "../../libs/bass/bass.h"
 
 BOOL inverted_y = FALSE;
+HSAMPLE sampstep;
+HCHANNEL chstep;
+BOOL is_x;
 
 RECT rcta;
 RECT rctb;
@@ -120,6 +124,39 @@ void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
                 if(new_cy >= ccy + 0.3) new_cy = ccy + 0.7;
             }
         }
+        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) >= 19 && GetBlockID((int)new_cx, (int)new_cy, camera.z-1) <= 34)
+        {
+            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+            {
+                char filename[] = "sounds\\step\\cloth.ogg";
+                sampstep = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                chstep = BASS_SampleGetChannel(sampstep, FALSE);
+                BASS_ChannelPlay(chstep, FALSE);
+            }
+        }
+        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) == 18)
+        {
+            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+            {
+                char filename[] = "sounds\\step\\glass.ogg";
+                sampstep = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                chstep = BASS_SampleGetChannel(sampstep, FALSE);
+                BASS_ChannelPlay(chstep, FALSE);
+            }
+        }
+        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) == 2)
+        {
+            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+            {
+                char filename[] = "sounds\\step\\grass.ogg";
+                sampstep = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                chstep = BASS_SampleGetChannel(sampstep, FALSE);
+                BASS_ChannelPlay(chstep, FALSE);
+            }
+        }
+
+        is_x = TRUE;
+
         camera.x = new_cx;
         camera.y = new_cy;
     }

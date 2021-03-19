@@ -39,6 +39,8 @@
 			<Add library="lib/libz.a" />
 			<Add library="C:/Program Files/CodeBlocks/MinGW/lib/libwsock32.a" />
 			<Add library="lib/libcurl.dll.a" />
+			<Add library="C:/Program Files/CodeBlocks/MinGW/lib/libwinmm.a" />
+			<Add library="lib/bass.lib" />
 		</Linker>
 		<Unit filename="src/libs/stb_image/stb_image.h" />
 		<Unit filename="src/opencraft/client/blocks.c">
