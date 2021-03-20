@@ -23,7 +23,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.22a"
+#define OPENCRAFT_VERSION "0.0.23a"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -393,6 +393,22 @@ HSAMPLE sampstep;
 HCHANNEL chstep;
 
 BOOL is_x;
+
+BOOL set_music = TRUE;
+HSAMPLE mus;
+HCHANNEL chmus;
+BOOL set_sound = TRUE;
+BOOL set_showfps = FALSE;
+
+char conW = 'W';
+char conA = 'A';
+char conD = 'D';
+char conS = 'S';
+char conR = 'R';
+char conEnter = VK_RETURN;
+char conT = 'T';
+char conSpace = ' ';
+int selCon;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -1198,6 +1214,105 @@ void Game_Init()
     glDisable(GL_LIGHT0);
     glDisable(GL_DEPTH_TEST);
 
+    FILE *settings;
+
+    char argument[1000];
+    char value[1000];
+    char sp[1000];
+
+    settings = fopen("options.txt", "rt");
+
+    if(settings != NULL)
+    {
+        while(!feof(settings))
+        {
+            fgets(sp, 1000, settings);
+            if(sp[0] == '#') continue;
+            BOOL exit = FALSE;
+            for(int i = 0; i < 1000; i++)
+            {
+                if(sp[i] == ':')
+                {
+                    for(int iw = 0; iw < 1000; iw++)
+                    {
+                        argument[iw] = 0;
+                        value[iw] = 0;
+                    }
+                    for(int iq = 0; iq < i; iq++)
+                    {
+                        argument[iq] = sp[iq];
+                    }
+                    int cnt = 0;
+                    for(int ie = i+1; ie < 1000; ie++)
+                    {
+                        if(sp[ie] == '\n') break;
+                        value[cnt] = sp[ie];
+                        cnt++;
+                    }
+                    if(strcmp(argument, "music") == 0)
+                    {
+                        if(strcmp("false", value) == 0) set_music = FALSE;
+                        else set_music = TRUE;
+                    }
+                    else if(strcmp(argument, "sound") == 0)
+                    {
+                        if(strcmp("false", value) == 0) set_sound = FALSE;
+                        else set_sound = TRUE;
+                    }
+                    else if(strcmp(argument, "invertYMouse") == 0)
+                    {
+                        if(strcmp("false", value) == 0) inverted_y = FALSE;
+                        else inverted_y = TRUE;
+                    }
+                    else if(strcmp(argument, "showFrameRate") == 0)
+                    {
+                        if(strcmp("false", value) == 0) set_showfps = FALSE;
+                        else set_showfps = TRUE;
+                    }
+                    else if(strcmp(argument, "viewDistance") == 0)
+                    {
+                        render_distance = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Forward") == 0)
+                    {
+                        conW = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Left") == 0)
+                    {
+                        conA = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Right") == 0)
+                    {
+                        conD = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Back") == 0)
+                    {
+                        conS = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Load location") == 0)
+                    {
+                        conR = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Save location") == 0)
+                    {
+                        conEnter = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Chat") == 0)
+                    {
+                        conT = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Jump") == 0)
+                    {
+                        conSpace = atoi(value);
+                    }
+                    exit = TRUE;
+                }
+                if(exit == TRUE) break;
+            }
+        }
+        fclose(settings);
+    }
+
     if(on_server == FALSE)
     {
         TCHAR buffer[MAX_PATH];
@@ -1520,11 +1635,11 @@ void Player_Move()
 {
     if(SENSOR_MODE == FALSE)
     {
-        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8) Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
-                             ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
+        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8) Camera_MoveDirection(GetKeyState(conW) < 0 ? 1: (GetKeyState(conS) < 0 ? -1 : 0)
+                             ,GetKeyState(conD) < 0 ? 1 : (GetKeyState(conA) < 0 ? -1: 0)
                              ,0.02);
-        else Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
-            ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
+        else Camera_MoveDirection(GetKeyState(conW) < 0 ? 1: (GetKeyState(conS) < 0 ? -1 : 0)
+            ,GetKeyState(conD) < 0 ? 1 : (GetKeyState(conA) < 0 ? -1: 0)
             ,0.12);
     }
     else
@@ -2309,7 +2424,7 @@ int PlayerSetBlock()
                         }
                         HSAMPLE sampdes;
                         HCHANNEL chdes;
-                        if(world[chunkx][chunky][X][Y][Z] >= 19 && world[chunkx][chunky][X][Y][Z] <= 34)
+                        if(world[chunkx][chunky][X][Y][Z] >= 19 && world[chunkx][chunky][X][Y][Z] <= 34 && set_sound)
                         {
                             if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
                             {
@@ -2319,7 +2434,7 @@ int PlayerSetBlock()
                                 BASS_ChannelPlay(chdes, FALSE);
                             }
                         }
-                        if(world[chunkx][chunky][X][Y][Z] == 18)
+                        if(world[chunkx][chunky][X][Y][Z] == 18 && set_sound)
                         {
                             if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
                             {
@@ -2329,7 +2444,7 @@ int PlayerSetBlock()
                                 BASS_ChannelPlay(chdes, FALSE);
                             }
                         }
-                        if(world[chunkx][chunky][X][Y][Z] == 2)
+                        if(world[chunkx][chunky][X][Y][Z] == 2 && set_sound)
                         {
                             if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
                             {
@@ -2901,7 +3016,7 @@ void Menu_Show()
         glTranslatef(0,15,0);
         char line[50];
         sprintf(line, "%d fps, %d обновлений чанков", fps, update_chunks);
-        Text_Out(line, 0);
+        if(set_showfps) Text_Out(line, 0);
     glPopMatrix();
 
     for(int c = 0; c < 10; c++)
@@ -2916,11 +3031,6 @@ void Menu_Show()
 
     glColor3f(0.7, 0.7, 0.7);
 
-
-    if(SENSOR_MODE == TRUE)
-    {
-        ShowButton("Вперёд", sizeof("Вперёд") - 1, scrSize.x / 2 - 202.5, scrSize.y-200, 13);
-    }
     if(GetKeyState(VK_TAB) < 0 && afk == FALSE && chat_open == FALSE && on_server == TRUE && open_inventory == FALSE)
     {
         glPushMatrix();
@@ -3039,7 +3149,7 @@ void Menu_Show()
         glPopMatrix();
     }
 
-    if(chat_open == TRUE)
+    if(chat_open == TRUE && type_chat != 2)
     {
         glPushMatrix();
             glTranslatef(5, scrSize.y-29, 0);
@@ -3081,7 +3191,7 @@ void Menu_Show()
         if(menu_page == 0)
         {
             glPushMatrix();
-                glTranslatef((scrSize.x / 2) - 45, scrY - 80, 0);
+                glTranslatef((scrSize.x / 2) - 45, scrY - 95, 0);
                 Text_Out("Меню игры", 0);
             glPopMatrix();
             if(on_server == TRUE)
@@ -3090,14 +3200,15 @@ void Menu_Show()
                 Buttons[1].state = 2;
                 Buttons[2].state = 2;
             }
+            ShowButton("Настройки", sizeof("Настройки") - 1, scrX, scrY-65, 8);
             ShowButton("Создать новый мир", sizeof("Создать новый мир") - 1, scrX, scrY, 0);
             ShowButton("Загрузить мир", sizeof("Загрузить мир") - 1, scrX, scrY+65, 1);
             ShowButton("Сохранить мир", sizeof("Сохранить мир") - 1, scrX, scrY+130, 2);
-            ShowButton("Вернуться к игре", sizeof("Вернуться к игре") - 1, scrX, scrY+195, 3);
+            ShowButton("Вернуться к игре", sizeof("Вернуться к игре") - 1, scrX, scrY+260, 3);
 
             glPopMatrix();
         }
-        else
+        else if(menu_page == 1)
         {
             glPushMatrix();
                 glTranslatef((scrSize.x / 2) - 85, scrY - 80, 0);
@@ -3108,6 +3219,74 @@ void Menu_Show()
             ShowButton("Большой", sizeof("Большой") - 1, scrX, scrY+130, 6);
             ShowButton("Назад", sizeof("Назад") - 1, scrX, scrY+195, 7);
 
+            glPopMatrix();
+        }
+        else if(menu_page == 2)
+        {
+            glPushMatrix();
+                glTranslatef((scrSize.x / 2) - 45, scrY - 95, 0);
+                Text_Out("Настройки", 0);
+            glPopMatrix();
+            if(set_music) ShowButton("Музыка: вкл.", sizeof("Музыка: вкл.") - 1, scrX, scrY-65, 9);
+            else ShowButton("Музыка: выкл.", sizeof("Музыка: выкл.") - 1, scrX, scrY-65, 9);
+            if(set_sound) ShowButton("Звук: вкл.", sizeof("Звук: вкл.") - 1, scrX, scrY-15, 10);
+            else ShowButton("Звук: выкл.", sizeof("Звук: выкл.") - 1, scrX, scrY-15, 10);
+            if(inverted_y) ShowButton("Инвертирование мыши: вкл.", sizeof("Инвертирование мыши: вкл.") - 1, scrX, scrY+35, 11);
+            else ShowButton("Инвертирование мыши: выкл.", sizeof("Инвертирование мыши: выкл.") - 1, scrX, scrY+35, 11);
+            if(set_showfps) ShowButton("Показывать FPS: вкл.", sizeof("Показывать FPS: вкл.") - 1, scrX, scrY+85, 12);
+            else ShowButton("Показывать FPS: выкл.", sizeof("Показывать FPS: выкл.") - 1, scrX, scrY+85, 12);
+            if(render_distance == 1) ShowButton("Дальность прорисовки: очень близкая", sizeof("Дальность прорисовки: очень близкая") - 1, scrX, scrY+135, 13);
+            else if(render_distance == 2) ShowButton("Дальность прорисовки: близкая", sizeof("Дальность прорисовки: близкая") - 1, scrX, scrY+135, 13);
+            else if(render_distance == 3) ShowButton("Дальность прорисовки: нормальная", sizeof("Дальность прорисовки: нормальная") - 1, scrX, scrY+135, 13);
+            else ShowButton("Дальность прорисовки: дальняя", sizeof("Дальность прорисовки: дальняя") - 1, scrX, scrY+135, 13);
+            ShowButton("Управление", sizeof("Управление") - 1, scrX, scrY+200, 14);
+            ShowButton("Готово", sizeof("Готово") - 1, scrX, scrY+270, 15);
+
+            glPopMatrix();
+        }
+        else
+        {
+            glPushMatrix();
+                glTranslatef((scrSize.x / 2) - 50, scrY - 95, 0);
+                Text_Out("Управление", 0);
+            glPopMatrix();
+            char sw[100];
+            BOOL addL = 5;
+            if(conW == ' ') sprintf(sw, "Вперёд: пробел", conW);
+            else if(conW == VK_RETURN) sprintf(sw, "Вперёд: Enter", conW);
+            else { sprintf(sw, "Вперёд: %c", conW); addL = 0; }
+            ShowButton(sw, 9 + addL, scrX, scrY-65, 16);
+            addL = 5;
+            if(conA == ' ') sprintf(sw, "Влево: пробел");
+            else if(conA == VK_RETURN) sprintf(sw, "Влево: Enter");
+            else { sprintf(sw, "Влево: %c", conA); addL = 0; }
+            ShowButton(sw, 7 + addL, scrX, scrY-15, 17);
+            addL = 5;
+            if(conD == ' ') sprintf(sw, "Вправо: пробел");
+            else if(conD == VK_RETURN) sprintf(sw, "Вправо: Enter");
+            else { sprintf(sw, "Вправо: %c", conD); addL = 0; }
+            ShowButton(sw, 8 + addL, scrX, scrY+35, 18);
+            addL = 5;
+            if(conS == ' ') sprintf(sw, "Назад: пробел");
+            else if(conS == VK_RETURN) sprintf(sw, "Назад: Enter");
+            else { sprintf(sw, "Назад: %c", conS); addL = 0; }
+            ShowButton(sw, 7 + addL, scrX, scrY+85, 19);
+            addL = 5;
+            if(conSpace == ' ') sprintf(sw, "Прыжок: пробел");
+            else if(conSpace == VK_RETURN) sprintf(sw, "Прыжок: Enter");
+            else { sprintf(sw, "Прыжок: %c", conSpace); addL = 0; }
+            ShowButton(sw, 8 + addL, scrX, scrY+135, 20);
+            addL = 5;
+            if(conR == ' ') sprintf(sw, "Телепортироваться на спавн: пробел");
+            else if(conR == VK_RETURN) sprintf(sw, "Телепортироваться на спавн: Enter");
+            else { sprintf(sw, "Телепортироваться на спавн: %c", conR); addL = 0; }
+            ShowButton(sw, 28 + addL, scrX, scrY+185, 21);
+            addL = 5;
+            if(conEnter == ' ') sprintf(sw, "Изменить спавн: пробел");
+            else if(conEnter == VK_RETURN) sprintf(sw, "Изменить спавн: Enter");
+            else { sprintf(sw, "Изменить спавн: %c", conEnter); addL = 0; }
+            ShowButton(sw, 16 + addL, scrX, scrY+235, 22);
+            ShowButton("Готово", sizeof("Готово") - 1, scrX, scrY+285, 24);
             glPopMatrix();
         }
     }
@@ -3891,6 +4070,35 @@ void DirtBackgroundShow()
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 }
 
+void SaveSettings()
+{
+    FILE *settings;
+
+    settings = fopen("options.txt", "wt");
+
+    if(settings == NULL)
+    {
+        creat("options.txt", S_IREAD|S_IWRITE);
+        settings = fopen("options.txt", "wt");
+    }
+
+    fprintf(settings, "music:%s\n", set_music ? "true" : "false");
+    fprintf(settings, "sound:%s\n", set_sound ? "true" : "false");
+    fprintf(settings, "invertYMouse:%s\n", inverted_y ? "true" : "false");
+    fprintf(settings, "showFrameRate:%s\n", set_showfps ? "true" : "false");
+    fprintf(settings, "viewDistance:%d\n", render_distance);
+    fprintf(settings, "key_Forward:%d\n", conW);
+    fprintf(settings, "key_Left:%d\n", conA);
+    fprintf(settings, "key_Right:%d\n", conD);
+    fprintf(settings, "key_Back:%d\n", conS);
+    fprintf(settings, "key_Load location:%d\n", conR);
+    fprintf(settings, "key_Save location:%d\n", conEnter);
+    fprintf(settings, "key_Chat:%d\n", conT);
+    fprintf(settings, "key_Jump:%d", conSpace);
+
+    fclose(settings);
+}
+
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
 {
     PIXELFORMATDESCRIPTOR pfd;
@@ -4126,14 +4334,12 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
             static float lastTimemm = 0.0f;
             float currentTimemm = GetTickCount() * 0.001f;
-            if(currentTimemm - lastTimemm > 300.0f)
+            if(currentTimemm - lastTimemm > 300.0f && set_music)
             {
-                HSAMPLE samp;
-                HCHANNEL ch;
                 char filename[] = "music\\calm1.ogg";
-                samp = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
-                ch = BASS_SampleGetChannel(samp, FALSE);
-                BASS_ChannelPlay(ch, FALSE);
+                mus = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                chmus = BASS_SampleGetChannel(mus, FALSE);
+                BASS_ChannelPlay(chmus, FALSE);
                 lastTimemm = currentTimemm;
             }
 
@@ -4228,7 +4434,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 jump_tmp = 0;
                             }
                         }
-                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(' ') < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(' ') < 0 && timer_pl <= 0)
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(conSpace) < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(conSpace) < 0 && timer_pl <= 0)
                         {
                             if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 8) {}
                             else
@@ -4300,7 +4506,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         }
                         if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE && chat_open == FALSE)
                         {
-                            if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
+                            if(GetKeyState(conSpace) < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
                             {
                                 if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
                                 {
@@ -4321,7 +4527,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             }
                         }
 
-                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
+                        if(GetKeyState(conR) < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             camera.x = spawn.x;
                             camera.y = spawn.y;
@@ -4363,7 +4569,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             SaveWorld();
                             timer_n = 10;
                         }
-                        if(GetKeyState(VK_RETURN) < 0 && timer_enter <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
+                        if(GetKeyState(conEnter) < 0 && timer_enter <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             spawn.x = camera.x;
                             spawn.y = camera.y;
@@ -4394,7 +4600,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     timer_b--;
                     timer_del_chunks--;
                 }
-                if(GetKeyState(' ') > 0) space = FALSE;
+                if(GetKeyState(conSpace) > 0) space = FALSE;
                 static float lastTimeLM = 0.0f;
                 float currentTimeLM = GetTickCount() * 0.001f;
                 if(currentTimeLM - lastTimeLM > 0.25f)
@@ -4573,7 +4779,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 jump_tmp = 0;
                             }
                         }
-                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(' ') < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(' ') < 0 && timer_pl <= 0)
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(conSpace) < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(conSpace) < 0 && timer_pl <= 0)
                         {
                             if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 8) {}
                             else
@@ -4642,7 +4848,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         }
                         if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
-                            if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
+                            if(GetKeyState(conSpace) < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
                             {
                                 if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
                                 {
@@ -4685,7 +4891,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             glFogf(GL_FOG_END, 9.0f*render_distance);
                             timer_f = 10;
                         }
-                        if(GetKeyState('T') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
+                        if(GetKeyState(conT) < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             type_chat = 0;
                             chat_open = TRUE;
@@ -4719,7 +4925,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     timer_b--;
                     timer_del_chunks--;
                 }
-                if(GetKeyState(' ') > 0) space = FALSE;
+                if(GetKeyState(conSpace) > 0) space = FALSE;
                 static float lastTimeLM = 0.0f;
                 float currentTimeLM = GetTickCount() * 0.001f;
                 if(currentTimeLM - lastTimeLM > 0.25f)
@@ -4781,6 +4987,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         case WM_CLOSE:
             if(on_server == FALSE) SaveWorld();
+            SaveSettings();
             PostQuitMessage(0);
         break;
 
@@ -4821,8 +5028,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
                     }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 8) && Buttons[8].state != 2) menu_page = 2;
                 }
-                else
+                else if(menu_page == 1)
                 {
                     if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 4) && Buttons[4].state != 2)
                     {
@@ -4849,6 +5057,95 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         menu_page = 0;
                     }
+                }
+                else if(menu_page == 2)
+                {
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 9) && Buttons[9].state != 2)
+                    {
+                        set_music = !set_music;
+                        BASS_ChannelStop(chmus);
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 10) && Buttons[10].state != 2)
+                    {
+                        set_sound = !set_sound;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 11) && Buttons[11].state != 2)
+                    {
+                        inverted_y = !inverted_y;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 12) && Buttons[12].state != 2)
+                    {
+                        set_showfps = !set_showfps;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 13) && Buttons[13].state != 2)
+                    {
+                        if(render_distance < 4) render_distance++;
+                        else render_distance = 1;
+                        glFogf(GL_FOG_START, 8.0f*render_distance);
+                        glFogf(GL_FOG_END, 9.0f*render_distance);
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 15) && Buttons[15].state != 2) menu_page = 0;
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 14) && Buttons[14].state != 2) menu_page = 3;
+                }
+                else
+                {
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 16) && Buttons[16].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 16;
+                        conW = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 17) && Buttons[17].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 17;
+                        conA = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 18) && Buttons[18].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 18;
+                        conD = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 19) && Buttons[19].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 19;
+                        conS = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 20) && Buttons[20].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 20;
+                        conSpace = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 21) && Buttons[21].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 21;
+                        conR = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 22) && Buttons[22].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 22;
+                        conEnter = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 23) && Buttons[23].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 23;
+                        conT = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 24) && Buttons[24].state != 2 && chat_open == FALSE) menu_page = 2;
                 }
             }
             if(open_inventory == TRUE)
@@ -4923,22 +5220,25 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if(wParam == VK_SNAPSHOT || wParam == VK_EXECUTE || wParam == VK_HELP) return 0;
             if(wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_APPS) return 0;
             if(wParam == VK_NUMLOCK || wParam == VK_SCROLL || wParam == VK_LSHIFT || wParam == VK_RSHIFT || wParam == VK_LCONTROL || wParam == VK_RCONTROL) return 0;
-            if(wParam == 191)
+            if(chat_open != 2)
             {
-                chat_string[chat_size] = '/';
-                chat_size++;
-                return 0;
-            }
-            if(wParam == 190)
-            {
-                chat_string[chat_size] = '.';
-                chat_size++;
-                return 0;
-            }
-            if(wParam == 254)
-            {
-                chat_string[chat_size-1] = 'ю';
-                return 0;
+                if(wParam == 191)
+                {
+                    chat_string[chat_size] = '/';
+                    chat_size++;
+                    return 0;
+                }
+                if(wParam == 190)
+                {
+                    chat_string[chat_size] = '.';
+                    chat_size++;
+                    return 0;
+                }
+                if(wParam == 254)
+                {
+                    chat_string[chat_size-1] = 'ю';
+                    return 0;
+                }
             }
             if(F1_12_pressed)
             {
@@ -4950,7 +5250,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if(repeat_time == TRUE)
                 {
-                    if(wParam == VK_BACK)
+                    if(wParam == VK_BACK && chat_open != 2)
                     {
                         if(chat_size > 0)
                         {
@@ -4962,6 +5262,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                     if(wParam == VK_RETURN)
                     {
+                        if(type_chat == 2)
+                        {
+                            if(selCon == 16) conW = VK_RETURN;
+                            if(selCon == 17) conA = VK_RETURN;
+                            if(selCon == 18) conD = VK_RETURN;
+                            if(selCon == 19) conS = VK_RETURN;
+                            if(selCon == 20) conSpace = VK_RETURN;
+                            if(selCon == 21) conR = VK_RETURN;
+                            if(selCon == 22) conEnter = VK_RETURN;
+                            if(selCon == 23) conT = VK_RETURN;
+                            chat_open = FALSE;
+                            repeat_time = FALSE;
+                            return 0;
+                        }
                         char buff[512];
                         if(chat_size > 0)
                         {
@@ -5005,13 +5319,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             chat_size++;
                         }
                     }
-                    else
+                    else if(type_chat == 1)
                     {
                         if(chat_size < 39)
                         {
                             chat_string[chat_size] = wParam;
                             chat_size++;
                         }
+                    }
+                    else
+                    {
+                        if(selCon == 16) conW = wParam;
+                        if(selCon == 17) conA = wParam;
+                        if(selCon == 18) conD = wParam;
+                        if(selCon == 19) conS = wParam;
+                        if(selCon == 20) conSpace = wParam;
+                        if(selCon == 21) conR = wParam;
+                        if(selCon == 22) conEnter = wParam;
+                        if(selCon == 23) conT = wParam;
+                        chat_open = FALSE;
+                        repeat_time = FALSE;
                     }
                     repeat_time = FALSE;
                 }
@@ -5023,7 +5350,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             if(afk)
             {
-                for(int i = 0; i < 10; i++)
+                for(int i = 0; i < 30; i++)
                 {
                     if(CursorInButton(LOWORD(lParam), HIWORD(lParam), i) && Buttons[i].state != 2) Buttons[i].state = 1;
                     else if(Buttons[i].state != 2) Buttons[i].state = 0;

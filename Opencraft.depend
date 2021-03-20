@@ -171,7 +171,7 @@
 
 1612461317 d:\Документы\Мои проекты\opencraft\src\opencraft\client\blocks.h
 
-1616159277 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.c
+1616170427 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.c
 	<GL/gl.h>
 	"camera.h"
 	"blocks.h"
@@ -182,7 +182,7 @@
 1615481125 d:\Документы\Мои проекты\opencraft\src\opencraft\client\camera.h
 	<windows.h>
 
-1616159140 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
+1616249392 source:d:\Документы\Мои проекты\opencraft\src\opencraft\client\main.c
 	"../../libs/stb_image/stb_image.h"
 	"../../libs/zlib/zlib.h"
 	"../../libs/curl/curl.h"

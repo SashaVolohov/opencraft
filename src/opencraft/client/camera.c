@@ -10,6 +10,7 @@ BOOL inverted_y = FALSE;
 HSAMPLE sampstep;
 HCHANNEL chstep;
 BOOL is_x;
+BOOL set_sound;
 
 RECT rcta;
 RECT rctb;
@@ -124,7 +125,7 @@ void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
                 if(new_cy >= ccy + 0.3) new_cy = ccy + 0.7;
             }
         }
-        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) >= 19 && GetBlockID((int)new_cx, (int)new_cy, camera.z-1) <= 34)
+        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) >= 19 && GetBlockID((int)new_cx, (int)new_cy, camera.z-1) <= 34 && set_sound)
         {
             if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
             {
@@ -134,7 +135,7 @@ void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
                 BASS_ChannelPlay(chstep, FALSE);
             }
         }
-        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) == 18)
+        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) == 18 && set_sound)
         {
             if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
             {
@@ -144,7 +145,7 @@ void Camera_MoveDirection(int forwardMove, int rightMove, float speed)
                 BASS_ChannelPlay(chstep, FALSE);
             }
         }
-        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) == 2)
+        if(GetBlockID((int)new_cx, (int)new_cy, camera.z-1) == 2 && set_sound)
         {
             if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
             {
