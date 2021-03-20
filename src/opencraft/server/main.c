@@ -16,7 +16,7 @@
 #include <conio.h>
 #include <math.h>
 
-#define OPENCRAFT_VERSION "0.0.23a"
+#define OPENCRAFT_VERSION "0.0.23a_01"
 
 BOOL bQuit = FALSE;
 

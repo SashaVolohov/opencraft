@@ -23,7 +23,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.23a"
+#define OPENCRAFT_VERSION "0.0.23a_01"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -409,6 +409,8 @@ char conEnter = VK_RETURN;
 char conT = 'T';
 char conSpace = ' ';
 int selCon;
+
+BOOL fly = FALSE;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -4477,7 +4479,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         int cy = worldsizey / 16 - 1;
                         if(chunkx > cx || chunky > cy || camera.x < 0 || camera.y < 0 || cameraz <= -1 || chunkx < 0 || chunky < 0)
                         {
-                            if(!is_jumping && afk == FALSE)
+                            if(!is_jumping && afk == FALSE && !fly)
                             {
                                 camera.z -= 0.3;
                                 is_fly = TRUE;
@@ -4487,17 +4489,17 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         {
                             if(afk == FALSE)
                             {
-                                if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 8)
+                                if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 8 && !fly)
                                 {
                                     camera.z -= 0.3;
                                     is_fly = TRUE;
                                 }
-                                else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 7 && is_up == FALSE)
+                                else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 7 && is_up == FALSE && !fly)
                                 {
                                     camera.z -= 0.02;
                                     is_fly = TRUE;
                                 }
-                                else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 8 && is_up == FALSE)
+                                else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 8 && is_up == FALSE && !fly)
                                 {
                                     camera.z -= 0.02;
                                     is_fly = TRUE;
@@ -4506,7 +4508,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         }
                         if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE && chat_open == FALSE)
                         {
-                            if(GetKeyState(conSpace) < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
+                            if(GetKeyState(conSpace) < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE && !fly)
                             {
                                 if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
                                 {
@@ -4515,9 +4517,15 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                     space = TRUE;
                                 }
                             }
+                            else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 0 && fly && GetKeyState(conSpace) < 0)
+                            {
+                                is_up = TRUE;
+                                float z_new = camera.z + 0.03;
+                                camera.z = z_new;
+                            }
                         }
 
-                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 6 && !is_fly && !is_jumping && !is_up)
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 6 && !is_fly && !is_jumping && !is_up && !fly)
                         {
                             float new_z = camera.z - 0.3;
                             if((int)new_z < (int)camera.z) camera.z = (int)camera.z;
@@ -4822,7 +4830,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         int cy = worldsizey / 16 - 1;
                         if(chunkx > cx || chunky > cy || camera.x < 0 || camera.y < 0 || cameraz <= -1 || chunkx < 0 || chunky < 0)
                         {
-                            if(!is_jumping)
+                            if(!is_jumping && !fly)
                             {
                                 camera.z -= 0.3;
                                 is_fly = TRUE;
@@ -4830,17 +4838,17 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         }
                         else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping || blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz]].type == 3 && !is_jumping)
                         {
-                            if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 8)
+                            if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 8 && !fly)
                             {
                                 camera.z -= 0.3;
                                 is_fly = TRUE;
                             }
-                            else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 7 && is_up == FALSE)
+                            else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 7 && is_up == FALSE && !fly)
                             {
                                 camera.z -= 0.02;
                                 is_fly = TRUE;
                             }
-                            else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 8 && is_up == FALSE)
+                            else if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) == 8 && is_up == FALSE && !fly)
                             {
                                 camera.z -= 0.02;
                                 is_fly = TRUE;
@@ -4859,7 +4867,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             }
                         }
 
-                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 6 && !is_fly && !is_jumping && !is_up)
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 6 && !is_fly && !is_jumping && !is_up && !fly)
                         {
                             float new_z = camera.z - 0.3;
                             if((int)new_z < (int)camera.z) camera.z = (int)camera.z;
@@ -5172,6 +5180,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             switch (wParam)
             {
+                case VK_SPACE:
+                {
+                    static float lastTimeLS = 0.0f;
+                    if(lastTimeLS == 0.0f) lastTimeLS = GetTickCount() * 0.001f;
+                    float currentTimeLS = GetTickCount() * 0.001f;
+                    if(currentTimeLS - lastTimeLS > 0.5f)
+                    {
+                        lastTimeLS = currentTimeLS;
+                    }
+                    else
+                    {
+                        fly = !fly;
+                    }
+                }
                 case VK_ESCAPE:
                 {
                     if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE)

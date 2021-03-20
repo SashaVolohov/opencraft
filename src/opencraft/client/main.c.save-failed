@@ -1,10 +1,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 
-#define SAVE_GAME FALSE /* Если Вы пишите код, ставьте FALSE, чтобы экономить время сохранения и загрузки мира */
+#define SAVE_GAME TRUE /* Если Вы пишите код, ставьте FALSE, чтобы экономить время сохранения и загрузки мира */
+#define SENSOR_MODE FALSE
 
 #include "../../libs/stb_image/stb_image.h"
 #include "../../libs/zlib/zlib.h"
 #include "../../libs/curl/curl.h"
+#include "../../libs/bass/bass.h"
 
 #include "blocks.h"
 
@@ -17,10 +19,11 @@
 #include <time.h>
 #include <winsock2.h>
 #include <pthread.h>
+#include <mmsystem.h>
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.19a"
+#define OPENCRAFT_VERSION "0.0.23a_01"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -58,6 +61,7 @@ int timer_f = 0;
 int timer_n = 0;
 int timer_pl = 0;
 int timer_enter = 0;
+int timer_b = 0;
 
 int select_inv = 0;
 
@@ -212,7 +216,7 @@ GLuint plantInd[] = {0,1,2, 2,3,0, 4,5,6, 6,7,4};
 
 int plantIndCnt = sizeof(plantInd) / sizeof(GLuint);
 
-float block_inventory_flat[] = {0,0, 64,0, 64,64, 0,64};
+float block_inventory_flat[] = {0,0, 28,0, 28,28, 0,28};
 
 float rectCoord[] = {0,0, 16,0, 16,16, 0,16};
 float rectTex[] = {0,0, 1,0, 1,1, 0,1};
@@ -259,8 +263,15 @@ float lava_UV[] = {0,0, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
 float lava_UV_2[] = {0,0.0, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
 float lava_UV_3[] = {0,1, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
 float lava_UV_4[] = {0,1, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
-float lava_UV_5[] = {0,1, 1,1, 1,0, 0,0, 0,1, 1,1, 1,0, 0,0};
+float lava_UV_5[] = {0,0, 1,1, 1,0, 0,0, 0,1, 1,1, 1,0, 0,0};
 float lava_UV_updn[] = {0,1, 1,1, 1,0, 0,0, 0,1, 1,1, 1,0, 0,0};
+
+float real_lava_UV[] = {0,0, 1,0.035, 0,0.035, 1,0.035, 0,0, 1,0, 0,0, 1,0};
+float real_lava_UV_2[] = {0,0.0, 1,0.035, 0,0.035, 1,0.035, 0,0, 1,0, 0,0, 1,0};
+float real_lava_UV_3[] = {0,0.035, 1,0.035, 0,0.035, 1,0.035, 0,0, 1,0, 0,0, 1,0};
+float real_lava_UV_4[] = {0,0.035, 1,0.035, 0,0.035, 1,0.035, 0,0, 1,0, 0,0, 1,0};
+float real_lava_UV_5[] = {0,0, 1,0.035, 1,0, 0,0, 0,0.035, 1,0.035, 1,0, 0,0};
+float real_lava_UV_updn[] = {0,0.035, 1,0.035, 1,0, 0,0, 0,0.035, 1,0.035, 1,0, 0,0};
 
 float button_coord_closed[] = {0,0.18, 0.78,0.18, 0.78,0.26, 0,0.26};
 float button_coord[] = {0,0.26, 0.78,0.26, 0.78,0.335, 0,0.335};
@@ -272,7 +283,7 @@ typedef struct {
     int state;
 } SButtons;
 
-SButtons Buttons[10];
+SButtons Buttons[30];
 
 BOOL cursorShow = FALSE;
 
@@ -362,6 +373,42 @@ typedef struct {
 } SSlot;
 
 SSlot Inventory[9];
+
+int anim_lw = 0;
+
+float creative_inventory[] = {0,0, 480,0, 480,300, 0,300};
+BOOL open_inventory = FALSE;
+typedef struct {
+    float vertex[4];
+    int id;
+} SCreativeSlot;
+
+SCreativeSlot createInventoryVertex[256];
+int selectCreateInventory = -1;
+
+float load_line[] = {0,0, 200,0, 200,5, 0,5};
+float done_load_line[] = {0,0, 0,0, 0,10, 0,10};
+
+HSAMPLE sampstep;
+HCHANNEL chstep;
+
+BOOL is_x;
+
+BOOL set_music = TRUE;
+HSAMPLE mus;
+HCHANNEL chmus;
+BOOL set_sound = TRUE;
+BOOL set_showfps = FALSE;
+
+char conW = 'W';
+char conA = 'A';
+char conD = 'D';
+char conS = 'S';
+char conR = 'R';
+char conEnter = VK_RETURN;
+char conT = 'T';
+char conSpace = ' ';
+int selCon;
 
 void GenerateNewChunk(int chunkx, int chunky)
 {
@@ -555,11 +602,21 @@ void GenerateCaves()
 {
     GenMenu_Show("Генерация пещер...", sizeof("Генерация пещер..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.0007;
+    if(worldsizex == 256) lineonestep = 0.003;
+    if(worldsizex == 128) lineonestep = 0.012;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
+    BOOL exit_f = FALSE;
     int g3 = 0;
     for(int y = 0; y < worldsizey; y++)
     {
+        if(exit_f == TRUE) break;
         for(int x = 0; x < worldsizex; x++)
         {
+            if(exit_f == TRUE) break;
             int randomcool = rand();
             randomcool %= 10000;
             if(randomcool == 9999)
@@ -588,18 +645,51 @@ void GenerateCaves()
 
                         }
                         g3++;
-                        if(g3 >= 7) return;
+                        if(g3 >= 7) exit_f = TRUE;
                     }
                 }
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glPushMatrix();
+        glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+        float done_load_line[] = {0,0, 200,0, 200,5, 0,5};
+        glVertexPointer(2, GL_FLOAT, 0, load_line);
+        glColor3f(1, 1, 1);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+        glColor3f(0, 1, 0);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glPopMatrix();
+    SwapBuffers(hDC);
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateWaterAndLava()
 {
     GenMenu_Show("Генерация воды и лавы...", sizeof("Генерация воды и лавы..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.0007;
+    if(worldsizex == 256) lineonestep = 0.003;
+    if(worldsizex == 128) lineonestep = 0.012;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
     int z = 0;
     for(int y = 0; y < worldsizey; y++)
     {
@@ -667,14 +757,36 @@ void GenerateWaterAndLava()
                     }
                 }
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateAdditionalProcessing()
 {
     GenMenu_Show("Дополнительная обработка...", sizeof("Дополнительная обработка..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.00035;
+    if(worldsizex == 256) lineonestep = 0.0015;
+    if(worldsizex == 128) lineonestep = 0.006;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
     for(int z = 0; z < 256; z++)
     {
         for(int y = 0; y < worldsizey; y++)
@@ -712,14 +824,36 @@ void GenerateAdditionalProcessing()
                 }
                 if(z < 11 && GetBlockID(x, y, z) == 0) SetBlock(7, x, y, z);
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateTrees()
 {
     GenMenu_Show("Генерация деревьев...", sizeof("Генерация деревьев..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.0007;
+    if(worldsizex == 256) lineonestep = 0.003;
+    if(worldsizex == 128) lineonestep = 0.012;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
     for(int y = 0; y < worldsizey; y++)
     {
         for(int x = 0; x < worldsizex; x++)
@@ -768,14 +902,36 @@ void GenerateTrees()
                     }
                 }
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateOres()
 {
     GenMenu_Show("Генерация руд...", sizeof("Генерация руд..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
+    if(worldsizex == 512) lineonestep = 0.00035;
+    if(worldsizex == 256) lineonestep = 0.0015;
+    if(worldsizex == 128) lineonestep = 0.006;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_TEXTURE_2D);
     for(int z = 0; z < 256; z++)
     {
         for(int y = 0; y < worldsizey; y++)
@@ -815,23 +971,65 @@ void GenerateOres()
                     }
                 }
             }
+            cnt_steps++;
         }
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+            float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+            glVertexPointer(2, GL_FLOAT, 0, load_line);
+            glColor3f(1, 1, 1);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+            glColor3f(0, 1, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+        SwapBuffers(hDC);
     }
+    glEnable(GL_TEXTURE_2D);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glColor3f(1, 1, 1);
 }
 
 void GenerateNewWorld()
 {
     GenMenu_Show("Генерация ландшафта...", sizeof("Генерация ландшафта..."), 1);
     SwapBuffers(hDC);
+    float lineonestep = 0;
     int y_need = worldsizey / 16 - 1;
     int x_need = worldsizex / 16 - 1;
+    if(x_need == 31) lineonestep = 0.1953125;
+    if(x_need == 15) lineonestep = 1.28;
+    if(x_need == 7) lineonestep = 3.125;
+    int cnt_steps = 0;
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, scrSize.x, scrSize.y, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
     for(int y = 0; y <= y_need; y++)
     {
         for(int x = 0; x <= x_need; x++)
         {
+            glPushMatrix();
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+                glDisable(GL_TEXTURE_2D);
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+                glColor3f(1, 1, 1);
+            glPopMatrix();
+            SwapBuffers(hDC);
             GenerateNewChunk(x, y);
+            cnt_steps++;
         }
     }
+    glDisableClientState(GL_VERTEX_ARRAY);
     GenerateTrees();
     GenerateOres();
     GenerateWaterAndLava();
@@ -882,6 +1080,7 @@ void GenerateNewWorld()
     while (ShowCursor(FALSE) >= 0);
     afk = FALSE;
     SaveWorld();
+    glEnable(GL_TEXTURE_2D);
 }
 
 size_t write_data(void *ptr, size_t size, size_t nmemb, FILE* stream)
@@ -931,11 +1130,32 @@ void Game_Init()
     registerBlock(16, 5, "textures/blocks/leaves.png");
     registerBlock(17, 1, "textures/blocks/sponge.png");
     registerBlock(18, 1, "textures/blocks/glass.png");
+    registerBlock(19, 1, "textures/blocks/wool_colored_white.png");
+    registerBlock(20, 1, "textures/blocks/wool_colored_light_gray.png");
+    registerBlock(21, 1, "textures/blocks/wool_colored_dark_gray.png");
+    registerBlock(22, 1, "textures/blocks/wool_colored_red.png");
+    registerBlock(23, 1, "textures/blocks/wool_colored_orange.png");
+    registerBlock(24, 1, "textures/blocks/wool_colored_yellow.png");
+    registerBlock(25, 1, "textures/blocks/wool_colored_charteros.png");
+    registerBlock(26, 1, "textures/blocks/wool_colored_green.png");
+    registerBlock(27, 1, "textures/blocks/wool_colored_spring_green.png");
+    registerBlock(28, 1, "textures/blocks/wool_colored_turquoise.png");
+    registerBlock(29, 1, "textures/blocks/wool_colored_capri.png");
+    registerBlock(30, 1, "textures/blocks/wool_colored_ultramarine.png");
+    registerBlock(31, 1, "textures/blocks/wool_colored_purple.png");
+    registerBlock(32, 1, "textures/blocks/wool_colored_magenta.png");
+    registerBlock(33, 1, "textures/blocks/wool_colored_crimson.png");
+    registerBlock(34, 1, "textures/blocks/wool_colored_pink.png");
+    registerBlock(35, 3, "textures/blocks/dandelion.png");
+    registerBlock(36, 3, "textures/blocks/rose.png");
+    registerBlock(37, 3, "textures/blocks/brown_mushroom.png");
+    registerBlock(38, 3, "textures/blocks/red_mushroom.png");
+    registerBlock(39, 1, "textures/blocks/gold_block.png");
 
-    Inventory[0].id = 4;
-    Inventory[1].id = 2;
+    Inventory[0].id = 5;
+    Inventory[1].id = 3;
     Inventory[2].id = 17;
-    Inventory[3].id = 5;
+    Inventory[3].id = 4;
     Inventory[4].id = 6;
     Inventory[5].id = 15;
     Inventory[6].id = 16;
@@ -967,12 +1187,140 @@ void Game_Init()
 
     srand(time(NULL));
 
+    if(HIWORD(BASS_GetVersion()) != BASSVERSION)
+    {
+        MessageBox(NULL, "Ошибка версии BASS!", NULL, 0);
+        PostQuitMessage(0);
+        return 0;
+    }
+
+
+    if(!BASS_Init(-1, 22050, BASS_DEVICE_3D, 0, NULL))
+    {
+        MessageBox(NULL, "Ошибка инициализации BASS!", NULL, 0);
+        PostQuitMessage(0);
+        return 0;
+    }
+
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, scrSize.x, scrSize.y, 0, -1, 1);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    glDisable(GL_LIGHTING);
+    glDisable(GL_LIGHT0);
+    glDisable(GL_DEPTH_TEST);
+
+    FILE *settings;
+
+    char argument[1000];
+    char value[1000];
+    char sp[1000];
+
+    settings = fopen("options.txt", "rt");
+
+    if(settings != NULL)
+    {
+        while(!feof(settings))
+        {
+            fgets(sp, 1000, settings);
+            if(sp[0] == '#') continue;
+            BOOL exit = FALSE;
+            for(int i = 0; i < 1000; i++)
+            {
+                if(sp[i] == ':')
+                {
+                    for(int iw = 0; iw < 1000; iw++)
+                    {
+                        argument[iw] = 0;
+                        value[iw] = 0;
+                    }
+                    for(int iq = 0; iq < i; iq++)
+                    {
+                        argument[iq] = sp[iq];
+                    }
+                    int cnt = 0;
+                    for(int ie = i+1; ie < 1000; ie++)
+                    {
+                        if(sp[ie] == '\n') break;
+                        value[cnt] = sp[ie];
+                        cnt++;
+                    }
+                    if(strcmp(argument, "music") == 0)
+                    {
+                        if(strcmp("false", value) == 0) set_music = FALSE;
+                        else set_music = TRUE;
+                    }
+                    else if(strcmp(argument, "sound") == 0)
+                    {
+                        if(strcmp("false", value) == 0) set_sound = FALSE;
+                        else set_sound = TRUE;
+                    }
+                    else if(strcmp(argument, "invertYMouse") == 0)
+                    {
+                        if(strcmp("false", value) == 0) inverted_y = FALSE;
+                        else inverted_y = TRUE;
+                    }
+                    else if(strcmp(argument, "showFrameRate") == 0)
+                    {
+                        if(strcmp("false", value) == 0) set_showfps = FALSE;
+                        else set_showfps = TRUE;
+                    }
+                    else if(strcmp(argument, "viewDistance") == 0)
+                    {
+                        render_distance = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Forward") == 0)
+                    {
+                        conW = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Left") == 0)
+                    {
+                        conA = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Right") == 0)
+                    {
+                        conD = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Back") == 0)
+                    {
+                        conS = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Load location") == 0)
+                    {
+                        conR = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Save location") == 0)
+                    {
+                        conEnter = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Chat") == 0)
+                    {
+                        conT = atoi(value);
+                    }
+                    else if(strcmp(argument, "key_Jump") == 0)
+                    {
+                        conSpace = atoi(value);
+                    }
+                    exit = TRUE;
+                }
+                if(exit == TRUE) break;
+            }
+        }
+        fclose(settings);
+    }
+
     if(on_server == FALSE)
     {
         TCHAR buffer[MAX_PATH];
         GetCurrentDirectory(sizeof(buffer), buffer);
         char path[MAX_PATH];
         sprintf(path, "%s\\saves\\world", buffer);
+        float lineonestep = 33.3;
+        int cnt_steps = 0;
         if(DirectoryExists(path) && SAVE_GAME == TRUE)
         {
             FILE *level;
@@ -984,7 +1332,21 @@ void Game_Init()
 
             GenMenu_Show("Загрузка border.dat...", sizeof("Загрузка border.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                float done_load_line[] = {0,0, lineonestep*cnt_steps,0, lineonestep*cnt_steps,5, 0,5};
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\border.dat", buffer);
 
@@ -1001,7 +1363,22 @@ void Game_Init()
 
             GenMenu_Show("Загрузка level.dat...", sizeof("Загрузка level.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\level.dat", buffer);
 
@@ -1015,7 +1392,22 @@ void Game_Init()
 
             GenMenu_Show("Загрузка spawn.dat...", sizeof("Загрузка spawn.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\spawn.dat", buffer);
 
@@ -1029,7 +1421,21 @@ void Game_Init()
 
             GenMenu_Show("Загрузка world.ocw...", sizeof("Загрузка world.ocw..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\world.ocw", buffer);
 
@@ -1045,7 +1451,22 @@ void Game_Init()
 
             GenMenu_Show("Загрузка version.dat...", sizeof("Загрузка version.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\version.dat", buffer);
 
@@ -1078,7 +1499,22 @@ void Game_Init()
 
             GenMenu_Show("Загрузка entity.dat...", sizeof("Загрузка entity.dat..."), 0);
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
             SwapBuffers(hDC);
+
+            cnt_steps++;
 
             sprintf(path, "%s\\saves\\world\\entity.dat", buffer);
 
@@ -1090,11 +1526,34 @@ void Game_Init()
                 fclose(file_entity);
             }
 
+            glPushMatrix();
+                glDisable(GL_TEXTURE_2D);
+                glTranslatef(scrSize.x / 2 - 100, scrSize.y / 2 + 30, 0);
+                done_load_line[2] = lineonestep*cnt_steps;
+                done_load_line[4] = lineonestep*cnt_steps;
+                glVertexPointer(2, GL_FLOAT, 0, load_line);
+                glColor3f(1, 1, 1);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glVertexPointer(2, GL_FLOAT, 0, done_load_line);
+                glColor3f(0, 1, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                glEnable(GL_TEXTURE_2D);
+            glPopMatrix();
+            SwapBuffers(hDC);
+
         }
         else
         {
-            worldsizex = 128;
-            worldsizey = 128;
+            if(SAVE_GAME == FALSE)
+            {
+                worldsizex = 128;
+                worldsizey = 128;
+            }
+            else
+            {
+                worldsizex = 512;
+                worldsizey = 512;
+            }
             GenerateNewWorld();
         }
 
@@ -1174,13 +1633,25 @@ void WndResize(int x, int y)
 
 void Player_Move()
 {
-    if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8) Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
-                         ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
-                         ,0.02);
-    else Camera_MoveDirection(GetKeyState('W') < 0 ? 1: (GetKeyState('S') < 0 ? -1 : 0)
-        ,GetKeyState('D') < 0 ? 1 : (GetKeyState('A') < 0 ? -1: 0)
-        ,0.12);
-    if(afk == FALSE && chat_open == FALSE) Camera_AutoMoveByMouse((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2, 0.2);
+    if(SENSOR_MODE == FALSE)
+    {
+        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8) Camera_MoveDirection(GetKeyState(conW) < 0 ? 1: (GetKeyState(conS) < 0 ? -1 : 0)
+                             ,GetKeyState(conD) < 0 ? 1 : (GetKeyState(conA) < 0 ? -1: 0)
+                             ,0.02);
+        else Camera_MoveDirection(GetKeyState(conW) < 0 ? 1: (GetKeyState(conS) < 0 ? -1 : 0)
+            ,GetKeyState(conD) < 0 ? 1 : (GetKeyState(conA) < 0 ? -1: 0)
+            ,0.12);
+    }
+    else
+    {
+        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8) Camera_MoveDirection(GetKeyState(VK_RBUTTON) < 0 ? 1: 0
+                             ,0
+                             ,0.02);
+        else Camera_MoveDirection(GetKeyState(VK_RBUTTON) < 0 ? 1: 0
+            ,0
+            ,0.12);
+    }
+    if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE && SENSOR_MODE == FALSE) Camera_AutoMoveByMouse((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2, 0.2);
 }
 
 void Game_Show()
@@ -1231,15 +1702,15 @@ void Game_Show()
 
     int lava_reqshow = 0;
 
-    if(GetKeyState('1') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 0;
-    if(GetKeyState('2') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 1;
-    if(GetKeyState('3') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 2;
-    if(GetKeyState('4') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 3;
-    if(GetKeyState('5') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 4;
-    if(GetKeyState('6') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 5;
-    if(GetKeyState('7') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 6;
-    if(GetKeyState('8') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 7;
-    if(GetKeyState('9') < 0 && afk == FALSE && chat_open == FALSE) select_inv = 8;
+    if(GetKeyState('1') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 0;
+    if(GetKeyState('2') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 1;
+    if(GetKeyState('3') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 2;
+    if(GetKeyState('4') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 3;
+    if(GetKeyState('5') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 4;
+    if(GetKeyState('6') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 5;
+    if(GetKeyState('7') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 6;
+    if(GetKeyState('8') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 7;
+    if(GetKeyState('9') < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) select_inv = 8;
 
     int dcnt = 0;
     glPushMatrix();
@@ -1286,6 +1757,21 @@ void Game_Show()
                                 if(camera.Xrot >= 110 && camera.z - 3 > z) continue;
                             }
                             if(!world_visible[chunkx][chunky][x][y][z] && on_server == FALSE) continue;
+                            int realx = x + dcx;
+                            int realy = y + dcy;
+                            if(world[chunkx][chunky][x][y][z] == 17)
+                            {
+                                for(int zz = z-2; zz <= z+2; zz++)
+                                {
+                                    for(int yy = realy-2; yy <= realy+2; yy++)
+                                    {
+                                        for(int xx = realx-2; xx <= realx+2; xx++)
+                                        {
+                                            if(GetBlockID(xx, yy, zz) == 8) SetBlock(0, xx, yy, zz);
+                                        }
+                                    }
+                                }
+                            }
                             if(blocks[world[chunkx][chunky][x][y][z]].type == 1)
                             {
                                 glVertexPointer(3, GL_FLOAT, 0, block);
@@ -1296,37 +1782,37 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16 || GetBlockID(x+dcx, y+dcy+1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy+1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16 || GetBlockID(x+dcx+1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx+1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy-1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx-1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16 || GetBlockID(x+dcx, y+dcy, z+1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z+1)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z-1)].type == 3)
                                     {
                                         glTranslatef(0.0, 0.0, -1);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
@@ -1344,37 +1830,38 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 16 || GetBlockID(x+dcx, y+dcy+1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy+1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 16 || GetBlockID(x+dcx+1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx+1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy-1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx-1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 16 || GetBlockID(x+dcx, y+dcy, z+1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z+1)].type == 3)
                                     {
                                         glBindTexture(GL_TEXTURE_2D, blocks[world[chunkx][chunky][x][y][z]].texture[1]);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16)
+
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z-1)].type == 3)
                                     {
                                         glBindTexture(GL_TEXTURE_2D, blocks[world[chunkx][chunky][x][y][z]].texture[2]);
                                         glTranslatef(0.0, 0.0, -1);
@@ -1441,37 +1928,37 @@ void Game_Show()
                                 glTexCoordPointer(2, GL_FLOAT, 0, block_texture);
                                 glPushMatrix();
                                     glTranslatef(x+dcx, y+dcy, z);
-                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8)
+                                    if(GetBlockID(x+dcx, y+dcy+1, z) == 0 || GetBlockID(x+dcx, y+dcy+1, z) == 6 || GetBlockID(x+dcx, y+dcy+1, z) == 7 || GetBlockID(x+dcx, y+dcy+1, z) == 8 || GetBlockID(x+dcx, y+dcy+1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy+1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                                     }
 
-                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8)
+                                    if(GetBlockID(x+dcx+1, y+dcy, z) == 0 || GetBlockID(x+dcx+1, y+dcy, z) == 6 || GetBlockID(x+dcx+1, y+dcy, z) == 7 || GetBlockID(x+dcx+1, y+dcy, z) == 8 || GetBlockID(x+dcx+1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx+1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy-1, z) == 0 || GetBlockID(x+dcx, y+dcy-1, z) == 6 || GetBlockID(x+dcx, y+dcy-1, z) == 7 || GetBlockID(x+dcx, y+dcy-1, z) == 8 || GetBlockID(x+dcx, y+dcy-1, z) == 16 || GetBlockID(x+dcx, y+dcy-1, z) == 18 || blocks[GetBlockID(x+dcx, y+dcy-1, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                                     }
 
-                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16)
+                                    if(GetBlockID(x+dcx-1, y+dcy, z) == 0 || GetBlockID(x+dcx-1, y+dcy, z) == 6 || GetBlockID(x+dcx-1, y+dcy, z) == 7 || GetBlockID(x+dcx-1, y+dcy, z) == 8 || GetBlockID(x+dcx-1, y+dcy, z) == 16 || GetBlockID(x+dcx-1, y+dcy, z) == 18 || blocks[GetBlockID(x+dcx-1, y+dcy, z)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8)
+                                    if(GetBlockID(x+dcx, y+dcy, z+1) == 0 || GetBlockID(x+dcx, y+dcy, z+1) == 6 || GetBlockID(x+dcx, y+dcy, z+1) == 7 || GetBlockID(x+dcx, y+dcy, z+1) == 8 || GetBlockID(x+dcx, y+dcy, z+1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z+1)].type == 3)
                                     {
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
                                         glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                                     }
 
-                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16)
+                                    if(GetBlockID(x+dcx, y+dcy, z-1) == 0 || GetBlockID(x+dcx, y+dcy, z-1) == 6 || GetBlockID(x+dcx, y+dcy, z-1) == 7 || GetBlockID(x+dcx, y+dcy, z-1) == 8 || GetBlockID(x+dcx, y+dcy, z-1) == 16 || GetBlockID(x+dcx, y+dcy, z-1) == 18 || blocks[GetBlockID(x+dcx, y+dcy, z-1)].type == 3)
                                     {
                                         glTranslatef(0.0, 0.0, -1);
                                         glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
@@ -1489,7 +1976,7 @@ void Game_Show()
                                     {
                                         for(int zz = z+1; zz < 256; zz++)
                                         {
-                                            if(world[chunkx][chunky][x][y][zz] != 0 && world[chunkx][chunky][x][y][z+1] != 6) break;
+                                            if(world[chunkx][chunky][x][y][zz] != 0 && world[chunkx][chunky][x][y][z+1] != 6 && blocks[world[chunkx][chunky][x][y][z+1]].type != 3) break;
                                             if(zz == 255)
                                             {
                                                 if(GetBlockID(x+dcx+1, y+dcy, z) == 2 || GetBlockID(x+dcx-1, y+dcy, z) == 2 || GetBlockID(x+dcx, y+dcy+1, z) == 2 || GetBlockID(x+dcx, y+dcy-1, z) == 2 || GetBlockID(x+dcx+1, y+dcy, z+1) == 2 || GetBlockID(x+dcx-1, y+dcy, z+1) == 2 || GetBlockID(x+dcx, y+dcy+1, z+1) == 2 || GetBlockID(x+dcx, y+dcy-1, z+1) == 2 || GetBlockID(x+dcx+1, y+dcy, z-1) == 2 || GetBlockID(x+dcx-1, y+dcy, z-1) == 2 || GetBlockID(x+dcx, y+dcy+1, z-1) == 2 || GetBlockID(x+dcx, y+dcy-1, z-1) == 2 && z >= 64)
@@ -1502,7 +1989,7 @@ void Game_Show()
                                     }
                                     if(world[chunkx][chunky][x][y][z] == 2)
                                     {
-                                        if(world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z+1] != 6)
+                                        if(world[chunkx][chunky][x][y][z+1] != 0 && world[chunkx][chunky][x][y][z+1] != 6 && blocks[world[chunkx][chunky][x][y][z+1]].type != 3)
                                         {
                                             world[chunkx][chunky][x][y][z] = 3;
                                             map_changed = TRUE;
@@ -1765,6 +2252,12 @@ void Game_Show()
 
         for(int w = 0; w < lava_req; w++)
         {
+            float real_lava_UV[] = {0,0+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw)};
+            float real_lava_UV_2[] = {0,0+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw)};
+            float real_lava_UV_3[] = {0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw)};
+            float real_lava_UV_4[] = {0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 1,0+(0.035*anim_lw)};
+            float real_lava_UV_5[] = {0,0+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw)};
+            float real_lava_UV_updn[] = {0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw), 0,0.035+(0.035*anim_lw), 1,0.035+(0.035*anim_lw), 1,0+(0.035*anim_lw), 0,0+(0.035*anim_lw)};
             int x = LavaVisible[w].x;
             int y = LavaVisible[w].y;
             int z = LavaVisible[w].z;
@@ -1773,6 +2266,7 @@ void Game_Show()
             glVertexPointer(3, GL_FLOAT, 0, block);
             glNormalPointer(GL_FLOAT, 0, normal);
             glNormal3f(0,0,1);
+            if(GetBlockID(x, y, z) != 7 && GetBlockID(x, y, z) != 8) continue;
             if(LavaVisible[w].block_id == 1)
             {
                 glBindTexture(GL_TEXTURE_2D, blocks[7].texture[0]);
@@ -1787,38 +2281,38 @@ void Game_Show()
                 glTranslatef(x, y, z);
                 if(GetBlockID(x, y+1, z) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
                 }
 
                 if(GetBlockID(x+1, y, z) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_2);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
                 }
 
                 if(GetBlockID(x, y-1, z) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_3);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
                 }
 
                 if(GetBlockID(x-1, y, z) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_4);
                     glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
                 }
 
                 if(GetBlockID(x, y, z+1) == 0)
                 {
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_5);
                     glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                 }
 
                 if(GetBlockID(x, y, z-1) == 0)
                 {
                     glTranslatef(0.0, 0.0, -1);
-                    glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
+                    glTexCoordPointer(2, GL_FLOAT, 0, real_lava_UV_updn);
                     glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
                 }
             glPopMatrix();
@@ -1903,31 +2397,66 @@ int PlayerSetBlock()
         {
             if(place_blocks == FALSE)
             {
-                if(world[chunkx][chunky][X][Y][Z] != 7 && world[chunkx][chunky][X][Y][Z] != 8 && world[chunkx][chunky][X][Y][Z] != 9)
+                if(world[chunkx][chunky][X][Y][Z] != 7 && world[chunkx][chunky][X][Y][Z] != 8)
                 {
-                    for(int i = 0; i < 100; i++)
+                    if(world[chunkx][chunky][X][Y][Z] != 9)
                     {
-                        if(Sprites[i].block_id == 0)
+                        for(int i = 0; i < 100; i++)
                         {
-                            int a = 0;
-                            for(int zf = 0; zf < 3; zf++)
+                            if(Sprites[i].block_id == 0)
                             {
-                                for(int xf = 0; xf < 3; xf++)
+                                int a = 0;
+                                for(int zf = 0; zf < 3; zf++)
                                 {
-                                    Sprites[i].x[a] = (int)X + (0.3 * xf) + dcx;
-                                    Sprites[i].y[a] = (int)Y + dcy;
-                                    Sprites[i].z[a] = (int)Z + (0.3 * zf);
-                                    a++;
+                                    for(int xf = 0; xf < 3; xf++)
+                                    {
+                                        Sprites[i].x[a] = (int)X + (0.3 * xf) + dcx;
+                                        Sprites[i].y[a] = (int)Y + dcy;
+                                        Sprites[i].z[a] = (int)Z + (0.3 * zf);
+                                        a++;
+                                    }
                                 }
-                            }
 
-                            Sprites[i].block_id = world[chunkx][chunky][X][Y][Z];
-                            Sprites[i].step = 0;
-                            break;
+                                Sprites[i].block_id = world[chunkx][chunky][X][Y][Z];
+                                Sprites[i].step = 0;
+                                break;
+                            }
                         }
+                        HSAMPLE sampdes;
+                        HCHANNEL chdes;
+                        if(world[chunkx][chunky][X][Y][Z] >= 19 && world[chunkx][chunky][X][Y][Z] <= 34 && set_sound)
+                        {
+                            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+                            {
+                                char filename[] = "sounds\\step\\cloth.ogg";
+                                sampdes = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                                chdes = BASS_SampleGetChannel(sampdes, FALSE);
+                                BASS_ChannelPlay(chdes, FALSE);
+                            }
+                        }
+                        if(world[chunkx][chunky][X][Y][Z] == 18 && set_sound)
+                        {
+                            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+                            {
+                                char filename[] = "sounds\\step\\glass.ogg";
+                                sampdes = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                                chdes = BASS_SampleGetChannel(sampdes, FALSE);
+                                BASS_ChannelPlay(chdes, FALSE);
+                            }
+                        }
+                        if(world[chunkx][chunky][X][Y][Z] == 2 && set_sound)
+                        {
+                            if(!sampstep || BASS_ChannelIsActive(chstep) == BASS_ACTIVE_STOPPED)
+                            {
+                                char filename[] = "sounds\\step\\grass.ogg";
+                                sampstep = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                                chstep = BASS_SampleGetChannel(sampstep, FALSE);
+                                BASS_ChannelPlay(chstep, FALSE);
+                            }
+                        }
+                        world[chunkx][chunky][X][Y][Z] = 0;
+                        map_changed = TRUE;
                     }
-                    world[chunkx][chunky][X][Y][Z] = 0;
-                    map_changed = TRUE;
                     if(on_server == FALSE)
                     {
                         UpdateChunk(chunkx, chunky);
@@ -1964,15 +2493,11 @@ int PlayerSetBlock()
                 X = bx - dcx;
                 Y = by - dcy;
                 Z = bz;
-                if(world[chunkx][chunky][X][Y][Z] == 0)
+                if(world[chunkx][chunky][X][Y][Z] == 0 || world[chunkx][chunky][X][Y][Z] == 7 || world[chunkx][chunky][X][Y][Z] == 8)
                 {
                     if((int)camera.x == (int)bx && (int)camera.y == (int)by && (int)camera.z == (int)bz) return;
                     if((int)camera.x == (int)bx && (int)camera.y == (int)by && (int)camera.z+1 == (int)bz) return;
-                    if(select_inv == 1) world[chunkx][chunky][X][Y][Z] = 5;
-                    if(select_inv == 2) world[chunkx][chunky][X][Y][Z] = 3;
-                    if(select_inv == 3) world[chunkx][chunky][X][Y][Z] = 1;
-                    if(select_inv == 4) world[chunkx][chunky][X][Y][Z] = 4;
-                    if(select_inv == 6) world[chunkx][chunky][X][Y][Z] = 6;
+                    world[chunkx][chunky][X][Y][Z] = Inventory[select_inv].id;
                     map_changed = TRUE;
                     if(on_server == FALSE)
                     {
@@ -2423,23 +2948,23 @@ void Menu_Show()
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glPopMatrix();
 
-    curx = scrSize.x / 2 - 177;
-    cury = scrSize.y - 30;
-
-    glBindTexture(GL_TEXTURE_2D, blocks[Inventory[0].id].texture[0]);
-
-    if(blocks[Inventory[0].id].type != 3) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
-    else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
-    glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
-    glPushMatrix();
-        if(blocks[Inventory[0].id].type != 3) glTranslatef(curx, cury, 0);
-        else glTranslatef(curx, cury-8, 0);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-    glPopMatrix();
-
     for(int i = 0; i < 9; i++)
     {
-        if(blocks[Inventory[0].id].type != 3)
+        curx = scrSize.x / 2 - 177 + (35.75*i);
+        cury = scrSize.y - 30;
+
+        glBindTexture(GL_TEXTURE_2D, blocks[Inventory[i].id].texture[0]);
+
+        if(blocks[Inventory[i].id].type != 3) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
+        else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
+        glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+        glPushMatrix();
+            if(blocks[Inventory[i].id].type != 3) glTranslatef(curx, cury, 0);
+            else glTranslatef(curx, cury-8, 0);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        glPopMatrix();
+
+        if(blocks[Inventory[i].id].type != 3)
         {
             glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
             glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
@@ -2447,6 +2972,8 @@ void Menu_Show()
                 glTranslatef(curx, cury, 0);
                 glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
             glPopMatrix();
+
+            if(blocks[Inventory[i].id].type == 2) glBindTexture(GL_TEXTURE_2D, blocks[Inventory[i].id].texture[1]);
 
             glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
             glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
@@ -2489,7 +3016,7 @@ void Menu_Show()
         glTranslatef(0,15,0);
         char line[50];
         sprintf(line, "%d fps, %d обновлений чанков", fps, update_chunks);
-        Text_Out(line, 0);
+        if(set_showfps) Text_Out(line, 0);
     glPopMatrix();
 
     for(int c = 0; c < 10; c++)
@@ -2504,7 +3031,7 @@ void Menu_Show()
 
     glColor3f(0.7, 0.7, 0.7);
 
-    if(GetKeyState(VK_TAB) < 0 && afk == FALSE && chat_open == FALSE && on_server == TRUE)
+    if(GetKeyState(VK_TAB) < 0 && afk == FALSE && chat_open == FALSE && on_server == TRUE && open_inventory == FALSE)
     {
         glPushMatrix();
             glTranslatef(scrSize.x / 2 - 250, scrSize.y / 2 - 150, 0);
@@ -2550,7 +3077,79 @@ void Menu_Show()
         glPopMatrix();
     }
 
-    if(chat_open == TRUE)
+    if(open_inventory == TRUE)
+    {
+        glPushMatrix();
+            glTranslatef(scrSize.x / 2 - 240, scrSize.y / 2 - 150, 0);
+            glDisable(GL_TEXTURE_2D);
+            glVertexPointer(2, GL_FLOAT, 0, creative_inventory);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glColor4f(0, 0, 0, 0.7);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glDisable(GL_BLEND);
+            glColor3f(0.7, 0.7, 0.7);
+            glEnable(GL_TEXTURE_2D);
+            glTranslatef(175, 3, 0);
+            int cool = 0;
+            int columb = 0;
+            Text_Out("Выберите блок", 0);
+            glTranslatef(-165, 30, 0);
+            for(int i = 1; i < 256; i++)
+            {
+                glColor3f(0.7, 0.7, 0.7);
+                if(blocks[i].type == 0) break;
+                if(i == 7 || i == 8 || i == 9 || i == 2) continue;
+
+                if(selectCreateInventory == i) glColor3f(1, 1, 1);
+
+                createInventoryVertex[i].id = i;
+                createInventoryVertex[i].vertex[0] = scrSize.x / 2 - 230 + (60*cool);
+                createInventoryVertex[i].vertex[1] = scrSize.y / 2 - 117 + (50*columb) - 8;
+                createInventoryVertex[i].vertex[2] = scrSize.x / 2 - 230 + (60*cool) + 30;
+                createInventoryVertex[i].vertex[3] = scrSize.y / 2 - 117 + (50*columb) + 30 - 8;
+
+                glBindTexture(GL_TEXTURE_2D, blocks[i].texture[0]);
+
+                if(blocks[i].type != 3) glVertexPointer(2, GL_FLOAT, 0, block_inventory);
+                else glVertexPointer(2, GL_FLOAT, 0, block_inventory_flat);
+                glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+                glPushMatrix();
+                    if(blocks[i].type == 3) glTranslatef(0, -8, 0);
+                    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                    if(blocks[i].type == 3) glTranslatef(0, 8, 0);
+                glPopMatrix();
+
+                if(blocks[i].type != 3)
+                {
+                    glVertexPointer(2, GL_FLOAT, 0, block_inventory_2);
+                    glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+                    glPushMatrix();
+                        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                    glPopMatrix();
+
+                    if(blocks[i].type == 2) glBindTexture(GL_TEXTURE_2D, blocks[i].texture[1]);
+
+                    glVertexPointer(2, GL_FLOAT, 0, block_inventory_3);
+                    glTexCoordPointer(2, GL_FLOAT, 0, block_inventory_texture);
+                    glPushMatrix();
+                        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+                    glPopMatrix();
+                }
+                cool++;
+                if(cool == 8)
+                {
+                    glTranslatef(-480, 50, 0);
+                    cool = 0;
+                    columb++;
+                }
+                glTranslatef(60, 0, 0);
+                glColor3f(0.7, 0.7, 0.7);
+            }
+        glPopMatrix();
+    }
+
+    if(chat_open == TRUE && type_chat != 2)
     {
         glPushMatrix();
             glTranslatef(5, scrSize.y-29, 0);
@@ -2592,7 +3191,7 @@ void Menu_Show()
         if(menu_page == 0)
         {
             glPushMatrix();
-                glTranslatef((scrSize.x / 2) - 45, scrY - 80, 0);
+                glTranslatef((scrSize.x / 2) - 45, scrY - 95, 0);
                 Text_Out("Меню игры", 0);
             glPopMatrix();
             if(on_server == TRUE)
@@ -2601,14 +3200,15 @@ void Menu_Show()
                 Buttons[1].state = 2;
                 Buttons[2].state = 2;
             }
+            ShowButton("Настройки", sizeof("Настройки") - 1, scrX, scrY-65, 8);
             ShowButton("Создать новый мир", sizeof("Создать новый мир") - 1, scrX, scrY, 0);
             ShowButton("Загрузить мир", sizeof("Загрузить мир") - 1, scrX, scrY+65, 1);
             ShowButton("Сохранить мир", sizeof("Сохранить мир") - 1, scrX, scrY+130, 2);
-            ShowButton("Вернуться к игре", sizeof("Вернуться к игре") - 1, scrX, scrY+195, 3);
+            ShowButton("Вернуться к игре", sizeof("Вернуться к игре") - 1, scrX, scrY+260, 3);
 
             glPopMatrix();
         }
-        else
+        else if(menu_page == 1)
         {
             glPushMatrix();
                 glTranslatef((scrSize.x / 2) - 85, scrY - 80, 0);
@@ -2619,6 +3219,74 @@ void Menu_Show()
             ShowButton("Большой", sizeof("Большой") - 1, scrX, scrY+130, 6);
             ShowButton("Назад", sizeof("Назад") - 1, scrX, scrY+195, 7);
 
+            glPopMatrix();
+        }
+        else if(menu_page == 2)
+        {
+            glPushMatrix();
+                glTranslatef((scrSize.x / 2) - 45, scrY - 95, 0);
+                Text_Out("Настройки", 0);
+            glPopMatrix();
+            if(set_music) ShowButton("Музыка: вкл.", sizeof("Музыка: вкл.") - 1, scrX, scrY-65, 9);
+            else ShowButton("Музыка: выкл.", sizeof("Музыка: выкл.") - 1, scrX, scrY-65, 9);
+            if(set_sound) ShowButton("Звук: вкл.", sizeof("Звук: вкл.") - 1, scrX, scrY-15, 10);
+            else ShowButton("Звук: выкл.", sizeof("Звук: выкл.") - 1, scrX, scrY-15, 10);
+            if(inverted_y) ShowButton("Инвертирование мыши: вкл.", sizeof("Инвертирование мыши: вкл.") - 1, scrX, scrY+35, 11);
+            else ShowButton("Инвертирование мыши: выкл.", sizeof("Инвертирование мыши: выкл.") - 1, scrX, scrY+35, 11);
+            if(set_showfps) ShowButton("Показывать FPS: вкл.", sizeof("Показывать FPS: вкл.") - 1, scrX, scrY+85, 12);
+            else ShowButton("Показывать FPS: выкл.", sizeof("Показывать FPS: выкл.") - 1, scrX, scrY+85, 12);
+            if(render_distance == 1) ShowButton("Дальность прорисовки: очень близкая", sizeof("Дальность прорисовки: очень близкая") - 1, scrX, scrY+135, 13);
+            else if(render_distance == 2) ShowButton("Дальность прорисовки: близкая", sizeof("Дальность прорисовки: близкая") - 1, scrX, scrY+135, 13);
+            else if(render_distance == 3) ShowButton("Дальность прорисовки: нормальная", sizeof("Дальность прорисовки: нормальная") - 1, scrX, scrY+135, 13);
+            else ShowButton("Дальность прорисовки: дальняя", sizeof("Дальность прорисовки: дальняя") - 1, scrX, scrY+135, 13);
+            ShowButton("Управление", sizeof("Управление") - 1, scrX, scrY+200, 14);
+            ShowButton("Готово", sizeof("Готово") - 1, scrX, scrY+270, 15);
+
+            glPopMatrix();
+        }
+        else
+        {
+            glPushMatrix();
+                glTranslatef((scrSize.x / 2) - 50, scrY - 95, 0);
+                Text_Out("Управление", 0);
+            glPopMatrix();
+            char sw[100];
+            BOOL addL = 5;
+            if(conW == ' ') sprintf(sw, "Вперёд: пробел", conW);
+            else if(conW == VK_RETURN) sprintf(sw, "Вперёд: Enter", conW);
+            else { sprintf(sw, "Вперёд: %c", conW); addL = 0; }
+            ShowButton(sw, 9 + addL, scrX, scrY-65, 16);
+            addL = 5;
+            if(conA == ' ') sprintf(sw, "Влево: пробел");
+            else if(conA == VK_RETURN) sprintf(sw, "Влево: Enter");
+            else { sprintf(sw, "Влево: %c", conA); addL = 0; }
+            ShowButton(sw, 7 + addL, scrX, scrY-15, 17);
+            addL = 5;
+            if(conD == ' ') sprintf(sw, "Вправо: пробел");
+            else if(conD == VK_RETURN) sprintf(sw, "Вправо: Enter");
+            else { sprintf(sw, "Вправо: %c", conD); addL = 0; }
+            ShowButton(sw, 8 + addL, scrX, scrY+35, 18);
+            addL = 5;
+            if(conS == ' ') sprintf(sw, "Назад: пробел");
+            else if(conS == VK_RETURN) sprintf(sw, "Назад: Enter");
+            else { sprintf(sw, "Назад: %c", conS); addL = 0; }
+            ShowButton(sw, 7 + addL, scrX, scrY+85, 19);
+            addL = 5;
+            if(conSpace == ' ') sprintf(sw, "Прыжок: пробел");
+            else if(conSpace == VK_RETURN) sprintf(sw, "Прыжок: Enter");
+            else { sprintf(sw, "Прыжок: %c", conSpace); addL = 0; }
+            ShowButton(sw, 8 + addL, scrX, scrY+135, 20);
+            addL = 5;
+            if(conR == ' ') sprintf(sw, "Телепортироваться на спавн: пробел");
+            else if(conR == VK_RETURN) sprintf(sw, "Телепортироваться на спавн: Enter");
+            else { sprintf(sw, "Телепортироваться на спавн: %c", conR); addL = 0; }
+            ShowButton(sw, 28 + addL, scrX, scrY+185, 21);
+            addL = 5;
+            if(conEnter == ' ') sprintf(sw, "Изменить спавн: пробел");
+            else if(conEnter == VK_RETURN) sprintf(sw, "Изменить спавн: Enter");
+            else { sprintf(sw, "Изменить спавн: %c", conEnter); addL = 0; }
+            ShowButton(sw, 16 + addL, scrX, scrY+235, 22);
+            ShowButton("Готово", sizeof("Готово") - 1, scrX, scrY+285, 24);
             glPopMatrix();
         }
     }
@@ -2702,7 +3370,15 @@ void UpdateChunk(int chunkx, int chunky)
                     {
                         if(GetBlockID(x+dcx, y+dcy, z) != 8 && GetBlockID(x+dcx+1, y+dcy, z) != 8 && GetBlockID(x+dcx-1, y+dcy, z) != 8 && GetBlockID(x+dcx, y+dcy+1, z) != 8 && GetBlockID(x+dcx, y+dcy-1, z) != 8 && GetBlockID(x+dcx, y+dcy, z+1) != 8 && GetBlockID(x+dcx, y+dcy, z-1) != 8)
                         {
-                            if(GetBlockID(x+dcx, y+dcy, z) != 16 && GetBlockID(x+dcx+1, y+dcy, z) != 16 && GetBlockID(x+dcx-1, y+dcy, z) != 16 && GetBlockID(x+dcx, y+dcy+1, z) != 16 && GetBlockID(x+dcx, y+dcy-1, z) != 16 && GetBlockID(x+dcx, y+dcy, z+1) != 16 && GetBlockID(x+dcx, y+dcy, z-1) != 16) world_visible[chunkx][chunky][x][y][z] = FALSE;
+                            if(GetBlockID(x+dcx, y+dcy, z) != 16 && GetBlockID(x+dcx+1, y+dcy, z) != 16 && GetBlockID(x+dcx-1, y+dcy, z) != 16 && GetBlockID(x+dcx, y+dcy+1, z) != 16 && GetBlockID(x+dcx, y+dcy-1, z) != 16 && GetBlockID(x+dcx, y+dcy, z+1) != 16 && GetBlockID(x+dcx, y+dcy, z-1) != 16)
+                            {
+                                if(GetBlockID(x+dcx, y+dcy, z) != 18 && GetBlockID(x+dcx+1, y+dcy, z) != 18 && GetBlockID(x+dcx-1, y+dcy, z) != 18 && GetBlockID(x+dcx, y+dcy+1, z) != 18 && GetBlockID(x+dcx, y+dcy-1, z) != 18 && GetBlockID(x+dcx, y+dcy, z+1) != 18 && GetBlockID(x+dcx, y+dcy, z-1) != 18)
+                                {
+                                    if(blocks[GetBlockID(x+dcx, y+dcy, z)].type != 3 && blocks[GetBlockID(x+dcx+1, y+dcy, z)].type != 3 && blocks[GetBlockID(x+dcx-1, y+dcy, z)].type != 3 && blocks[GetBlockID(x+dcx, y+dcy+1, z)].type != 3 && blocks[GetBlockID(x+dcx, y+dcy-1, z)].type != 3 && blocks[GetBlockID(x+dcx, y+dcy, z+1)].type != 3 && blocks[GetBlockID(x+dcx, y+dcy, z-1)].type != 3) world_visible[chunkx][chunky][x][y][z] = FALSE;
+                                    else world_visible[chunkx][chunky][x][y][z] = TRUE;
+                                }
+                                else world_visible[chunkx][chunky][x][y][z] = TRUE;
+                            }
                             else world_visible[chunkx][chunky][x][y][z] = TRUE;
                         }
                         else world_visible[chunkx][chunky][x][y][z] = TRUE;
@@ -2722,6 +3398,7 @@ void UpdateChunk(int chunkx, int chunky)
 
 void GenMenu_Show(char secondLine[], int slSize, int type)
 {
+    glColor3f(1, 1, 1);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0, scrSize.x, scrSize.y, 0, -1, 1);
@@ -2789,9 +3466,6 @@ void GenMenu_Show(char secondLine[], int slSize, int type)
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 }
 
 void ShowButton(char name[], int tSize, int x, int y, int ID)
@@ -2813,8 +3487,6 @@ void ShowButton(char name[], int tSize, int x, int y, int ID)
             glTranslatef(curx, y+cury, 0);
             Text_Out(name, 0);
         glPopMatrix();
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisableClientState(GL_VERTEX_ARRAY);
     Buttons[ID].x = x;
     Buttons[ID].y = y;
     Buttons[ID].xe = x + 405;
@@ -3398,6 +4070,35 @@ void DirtBackgroundShow()
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 }
 
+void SaveSettings()
+{
+    FILE *settings;
+
+    settings = fopen("options.txt", "wt");
+
+    if(settings == NULL)
+    {
+        creat("options.txt", S_IREAD|S_IWRITE);
+        settings = fopen("options.txt", "wt");
+    }
+
+    fprintf(settings, "music:%s\n", set_music ? "true" : "false");
+    fprintf(settings, "sound:%s\n", set_sound ? "true" : "false");
+    fprintf(settings, "invertYMouse:%s\n", inverted_y ? "true" : "false");
+    fprintf(settings, "showFrameRate:%s\n", set_showfps ? "true" : "false");
+    fprintf(settings, "viewDistance:%d\n", render_distance);
+    fprintf(settings, "key_Forward:%d\n", conW);
+    fprintf(settings, "key_Left:%d\n", conA);
+    fprintf(settings, "key_Right:%d\n", conD);
+    fprintf(settings, "key_Back:%d\n", conS);
+    fprintf(settings, "key_Load location:%d\n", conR);
+    fprintf(settings, "key_Save location:%d\n", conEnter);
+    fprintf(settings, "key_Chat:%d\n", conT);
+    fprintf(settings, "key_Jump:%d", conSpace);
+
+    fclose(settings);
+}
+
 void EnableOpenGL(HWND hwnd, HDC* hDC, HGLRC* hRC)
 {
     PIXELFORMATDESCRIPTOR pfd;
@@ -3610,6 +4311,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
             if (msg.message == WM_QUIT)
             {
                 if(on_server == TRUE) closesocket(s);
+                BASS_Free();
                 bQuit = TRUE;
             }
             else
@@ -3620,6 +4322,26 @@ int WINAPI WinMain(HINSTANCE hInstance,
         }
         else
         {
+
+            static float lastTime3 = 0.0f;
+            float currentTime3 = GetTickCount() * 0.001f;
+            if(currentTime3 - lastTime3 > 0.1f)
+            {
+                anim_lw++;
+                if(anim_lw > 27) anim_lw = 0;
+                lastTime3 = currentTime3;
+            }
+
+            static float lastTimemm = 0.0f;
+            float currentTimemm = GetTickCount() * 0.001f;
+            if(currentTimemm - lastTimemm > 300.0f && set_music)
+            {
+                char filename[] = "music\\calm1.ogg";
+                mus = BASS_SampleLoad(FALSE, filename, 0, 0, 1, BASS_SAMPLE_MONO);
+                chmus = BASS_SampleGetChannel(mus, FALSE);
+                BASS_ChannelPlay(chmus, FALSE);
+                lastTimemm = currentTimemm;
+            }
 
             if(on_server == FALSE)
             {
@@ -3644,6 +4366,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         }
                     }
                 }
+
                 static float lastTime = 0.0f;
                 float currentTime = GetTickCount() * 0.001f;
                 if(currentTime - lastTime > 0.01f)
@@ -3690,7 +4413,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                     jump_down = FALSE;
                                     jump_tmp = 0;
                                 }
-                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
+                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6 && blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z]].type != 3)
                                 {
                                     is_jumping = FALSE;
                                     jump_down = FALSE;
@@ -3711,7 +4434,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 jump_tmp = 0;
                             }
                         }
-                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(' ') < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(' ') < 0 && timer_pl <= 0)
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(conSpace) < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(conSpace) < 0 && timer_pl <= 0)
                         {
                             if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 8) {}
                             else
@@ -3760,7 +4483,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 is_fly = TRUE;
                             }
                         }
-                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping)
+                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping || blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz]].type == 3 && !is_jumping)
                         {
                             if(afk == FALSE)
                             {
@@ -3783,7 +4506,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                         }
                         if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE && chat_open == FALSE)
                         {
-                            if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
+                            if(GetKeyState(conSpace) < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
                             {
                                 if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
                                 {
@@ -3804,7 +4527,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             }
                         }
 
-                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState(conR) < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             camera.x = spawn.x;
                             camera.y = spawn.y;
@@ -3812,7 +4535,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             camera.Xrot = spawn.Xrot;
                             camera.Zrot = spawn.Zrot;
                         }
-                        if(GetKeyState('G') < 0 && timer_g <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('G') < 0 && timer_g <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             for(int y = 0; y < 500; y++)
                             {
@@ -3827,13 +4550,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 }
                             }
                         }
-                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(!inverted_y) inverted_y = TRUE;
                             else inverted_y = FALSE;
                             timer_y = 10;
                         }
-                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(render_distance < 4) render_distance++;
                             else render_distance = 1;
@@ -3841,12 +4564,12 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             glFogf(GL_FOG_END, 9.0f*render_distance);
                             timer_f = 10;
                         }
-                        if(GetKeyState('N') < 0 && timer_n <= 0 && afk == FALSE && map_changed == TRUE && chat_open == FALSE)
+                        if(GetKeyState('N') < 0 && timer_n <= 0 && afk == FALSE && map_changed == TRUE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             SaveWorld();
                             timer_n = 10;
                         }
-                        if(GetKeyState(VK_RETURN) < 0 && timer_enter <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState(conEnter) < 0 && timer_enter <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             spawn.x = camera.x;
                             spawn.y = camera.y;
@@ -3854,6 +4577,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             spawn.Xrot = camera.Xrot;
                             spawn.Zrot = camera.Zrot;
                             timer_enter = 10;
+                        }
+                        if(GetKeyState('B') < 0 && timer_b <= 0 && afk == FALSE && chat_open == FALSE)
+                        {
+                            open_inventory = TRUE;
+                            timer_b = 10;
+                            cursorShow = TRUE;
+                            while (ShowCursor(TRUE) <= 0);
                         }
                         if(afk == FALSE) SpritesManage();
 
@@ -3867,9 +4597,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     timer_n--;
                     timer_pl--;
                     timer_enter--;
+                    timer_b--;
                     timer_del_chunks--;
                 }
-                if(GetKeyState(' ') > 0) space = FALSE;
+                if(GetKeyState(conSpace) > 0) space = FALSE;
                 static float lastTimeLM = 0.0f;
                 float currentTimeLM = GetTickCount() * 0.001f;
                 if(currentTimeLM - lastTimeLM > 0.25f)
@@ -3879,12 +4610,14 @@ int WINAPI WinMain(HINSTANCE hInstance,
                 }
                 if(GetKeyState(VK_LBUTTON) < 0 && lbutton_timer == FALSE)
                 {
-                    if(afk == FALSE && chat_open == FALSE)
+                    if(afk == FALSE && chat_open == FALSE  && open_inventory == FALSE)
                     {
                         PlayerSetBlock();
                         lbutton_timer = TRUE;
                     }
                 }
+                if(is_x == FALSE) BASS_ChannelStop(chstep);
+                is_x = FALSE;
             }
             else
             {
@@ -3990,7 +4723,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     for(int cnt = 1; cnt <= (int)qwe; cnt++)
                     {
                         glPushMatrix();
-                            if (GetForegroundWindow() == hwnd && afk == FALSE && chat_open == FALSE) Player_Move();
+                            if (GetForegroundWindow() == hwnd && afk == FALSE && chat_open == FALSE && open_inventory == FALSE) Player_Move();
                         glPopMatrix();
                         for(int qwe = 500; qwe < 1500; qwe++) EntityAI(qwe);
                         int chunkx = camera.x / 16;
@@ -4025,7 +4758,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                     jump_down = FALSE;
                                     jump_tmp = 0;
                                 }
-                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6)
+                                if(jump_down == TRUE && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 0 && world[chunkx][chunky][(int)xjump][(int)yjump][(int)camera.z] != 6 && blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz]].type != 3)
                                 {
                                     is_jumping = FALSE;
                                     jump_down = FALSE;
@@ -4046,7 +4779,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 jump_tmp = 0;
                             }
                         }
-                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(' ') < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(' ') < 0 && timer_pl <= 0)
+                        if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 7 && GetKeyState(conSpace) < 0 && timer_pl <= 0 || GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) == 8 && GetKeyState(conSpace) < 0 && timer_pl <= 0)
                         {
                             if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 0 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z+2) != 8) {}
                             else
@@ -4095,7 +4828,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 is_fly = TRUE;
                             }
                         }
-                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping)
+                        else if(world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 0 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 6 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 7 && !is_jumping || world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] == 8 && !is_jumping || blocks[world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz]].type == 3 && !is_jumping)
                         {
                             if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z - 1) != 8)
                             {
@@ -4113,9 +4846,9 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 is_fly = TRUE;
                             }
                         }
-                        if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE && chat_open == FALSE)
+                        if(chunkx <= cx && chunky <= cy && chunkx >= 0 && chunky >= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
-                            if(GetKeyState(' ') < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
+                            if(GetKeyState(conSpace) < 0 && !is_jumping && world[chunkx][chunky][(int)xjump][(int)yjump][(int)cameraz] != 0 && camera.x > 0 && camera.x < worldsizex && camera.y > 0 && camera.y < worldsizey && camera.z >= 0 && camera.z < 256 && !is_fly && ((int)camera.z - cameraz) == 1 && timer <= 0 && space == FALSE)
                             {
                                 if(GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 7 && GetBlockID((int)camera.x, (int)camera.y, (int)camera.z) != 8)
                                 {
@@ -4136,7 +4869,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             }
                         }
 
-                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('R') < 0 && timer_r <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             camera.x = spawn.x;
                             camera.y = spawn.y;
@@ -4144,13 +4877,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             camera.Xrot = spawn.Xrot;
                             camera.Zrot = spawn.Zrot;
                         }
-                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('Y') < 0 && timer_y <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(!inverted_y) inverted_y = TRUE;
                             else inverted_y = FALSE;
                             timer_y = 10;
                         }
-                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState('F') < 0 && timer_f <= 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             if(render_distance < 4) render_distance++;
                             else render_distance = 1;
@@ -4158,7 +4891,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                             glFogf(GL_FOG_END, 9.0f*render_distance);
                             timer_f = 10;
                         }
-                        if(GetKeyState('T') < 0 && afk == FALSE && chat_open == FALSE)
+                        if(GetKeyState(conT) < 0 && afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                         {
                             type_chat = 0;
                             chat_open = TRUE;
@@ -4168,6 +4901,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
                                 chat_string[wrt] = 0;
                             }
                             chat_size = 0;
+                            while (ShowCursor(TRUE) <= 0);
+                        }
+                        if(GetKeyState('B') < 0 && timer_b <= 0 && afk == FALSE && chat_open == FALSE)
+                        {
+                            open_inventory = TRUE;
+                            timer_b = 10;
+                            cursorShow = TRUE;
                             while (ShowCursor(TRUE) <= 0);
                         }
                         SpritesManage();
@@ -4182,9 +4922,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     timer_n--;
                     timer_pl--;
                     timer_enter--;
+                    timer_b--;
                     timer_del_chunks--;
                 }
-                if(GetKeyState(' ') > 0) space = FALSE;
+                if(GetKeyState(conSpace) > 0) space = FALSE;
                 static float lastTimeLM = 0.0f;
                 float currentTimeLM = GetTickCount() * 0.001f;
                 if(currentTimeLM - lastTimeLM > 0.25f)
@@ -4214,7 +4955,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
                 if(GetKeyState(VK_LBUTTON) < 0 && lbutton_timer == FALSE)
                 {
-                    if(afk == FALSE && chat_open == FALSE)
+                    if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                     {
                         PlayerSetBlock();
                         lbutton_timer = TRUE;
@@ -4246,6 +4987,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         case WM_CLOSE:
             if(on_server == FALSE) SaveWorld();
+            SaveSettings();
             PostQuitMessage(0);
         break;
 
@@ -4254,7 +4996,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
 
         case WM_RBUTTONDOWN:
-            if(afk == FALSE && chat_open == FALSE)
+            if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
             {
                 if(place_blocks == FALSE) place_blocks = TRUE;
                 else place_blocks = FALSE;
@@ -4286,8 +5028,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
                     }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 8) && Buttons[8].state != 2) menu_page = 2;
                 }
-                else
+                else if(menu_page == 1)
                 {
                     if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 4) && Buttons[4].state != 2)
                     {
@@ -4315,6 +5058,106 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         menu_page = 0;
                     }
                 }
+                else if(menu_page == 2)
+                {
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 9) && Buttons[9].state != 2)
+                    {
+                        set_music = !set_music;
+                        BASS_ChannelStop(chmus);
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 10) && Buttons[10].state != 2)
+                    {
+                        set_sound = !set_sound;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 11) && Buttons[11].state != 2)
+                    {
+                        inverted_y = !inverted_y;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 12) && Buttons[12].state != 2)
+                    {
+                        set_showfps = !set_showfps;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 13) && Buttons[13].state != 2)
+                    {
+                        if(render_distance < 4) render_distance++;
+                        else render_distance = 1;
+                        glFogf(GL_FOG_START, 8.0f*render_distance);
+                        glFogf(GL_FOG_END, 9.0f*render_distance);
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 15) && Buttons[15].state != 2) menu_page = 0;
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 14) && Buttons[14].state != 2) menu_page = 3;
+                }
+                else
+                {
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 16) && Buttons[16].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 16;
+                        conW = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 17) && Buttons[17].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 17;
+                        conA = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 18) && Buttons[18].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 18;
+                        conD = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 19) && Buttons[19].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 19;
+                        conS = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 20) && Buttons[20].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 20;
+                        conSpace = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 21) && Buttons[21].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 21;
+                        conR = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 22) && Buttons[22].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 22;
+                        conEnter = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 23) && Buttons[23].state != 2)
+                    {
+                        chat_open = TRUE;
+                        type_chat = 2;
+                        selCon = 23;
+                        conT = 0;
+                    }
+                    if(CursorInButton(LOWORD(lParam), HIWORD(lParam), 24) && Buttons[24].state != 2 && chat_open == FALSE) menu_page = 2;
+                }
+            }
+            if(open_inventory == TRUE)
+            {
+                if(selectCreateInventory != -1)
+                {
+                    Inventory[select_inv].id = selectCreateInventory;
+                    open_inventory = FALSE;
+                    cursorShow = FALSE;
+                    SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
+                    while (ShowCursor(FALSE) >= 0);
+                }
             }
         break;
 
@@ -4329,9 +5172,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             switch (wParam)
             {
+                case VK_SPACE:
+                {
+
+                }
                 case VK_ESCAPE:
                 {
-                    if(afk == FALSE && chat_open == FALSE)
+                    if(afk == FALSE && chat_open == FALSE && open_inventory == FALSE)
                     {
                         afk = TRUE;
                         cursorShow = TRUE;
@@ -4340,6 +5187,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     else if(chat_open == TRUE)
                     {
                         chat_open = FALSE;
+                        cursorShow = FALSE;
+                        SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
+                        while (ShowCursor(FALSE) >= 0);
+                    }
+                    else if(open_inventory == TRUE)
+                    {
+                        open_inventory = FALSE;
                         cursorShow = FALSE;
                         SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
@@ -4370,22 +5224,25 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if(wParam == VK_SNAPSHOT || wParam == VK_EXECUTE || wParam == VK_HELP) return 0;
             if(wParam == VK_LWIN || wParam == VK_RWIN || wParam == VK_APPS) return 0;
             if(wParam == VK_NUMLOCK || wParam == VK_SCROLL || wParam == VK_LSHIFT || wParam == VK_RSHIFT || wParam == VK_LCONTROL || wParam == VK_RCONTROL) return 0;
-            if(wParam == 191)
+            if(chat_open != 2)
             {
-                chat_string[chat_size] = '/';
-                chat_size++;
-                return 0;
-            }
-            if(wParam == 190)
-            {
-                chat_string[chat_size] = '.';
-                chat_size++;
-                return 0;
-            }
-            if(wParam == 254)
-            {
-                chat_string[chat_size-1] = 'ю';
-                return 0;
+                if(wParam == 191)
+                {
+                    chat_string[chat_size] = '/';
+                    chat_size++;
+                    return 0;
+                }
+                if(wParam == 190)
+                {
+                    chat_string[chat_size] = '.';
+                    chat_size++;
+                    return 0;
+                }
+                if(wParam == 254)
+                {
+                    chat_string[chat_size-1] = 'ю';
+                    return 0;
+                }
             }
             if(F1_12_pressed)
             {
@@ -4397,7 +5254,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if(repeat_time == TRUE)
                 {
-                    if(wParam == VK_BACK)
+                    if(wParam == VK_BACK && chat_open != 2)
                     {
                         if(chat_size > 0)
                         {
@@ -4409,6 +5266,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     }
                     if(wParam == VK_RETURN)
                     {
+                        if(type_chat == 2)
+                        {
+                            if(selCon == 16) conW = VK_RETURN;
+                            if(selCon == 17) conA = VK_RETURN;
+                            if(selCon == 18) conD = VK_RETURN;
+                            if(selCon == 19) conS = VK_RETURN;
+                            if(selCon == 20) conSpace = VK_RETURN;
+                            if(selCon == 21) conR = VK_RETURN;
+                            if(selCon == 22) conEnter = VK_RETURN;
+                            if(selCon == 23) conT = VK_RETURN;
+                            chat_open = FALSE;
+                            repeat_time = FALSE;
+                            return 0;
+                        }
                         char buff[512];
                         if(chat_size > 0)
                         {
@@ -4452,13 +5323,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                             chat_size++;
                         }
                     }
-                    else
+                    else if(type_chat == 1)
                     {
                         if(chat_size < 39)
                         {
                             chat_string[chat_size] = wParam;
                             chat_size++;
                         }
+                    }
+                    else
+                    {
+                        if(selCon == 16) conW = wParam;
+                        if(selCon == 17) conA = wParam;
+                        if(selCon == 18) conD = wParam;
+                        if(selCon == 19) conS = wParam;
+                        if(selCon == 20) conSpace = wParam;
+                        if(selCon == 21) conR = wParam;
+                        if(selCon == 22) conEnter = wParam;
+                        if(selCon == 23) conT = wParam;
+                        chat_open = FALSE;
+                        repeat_time = FALSE;
                     }
                     repeat_time = FALSE;
                 }
@@ -4470,10 +5354,22 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             if(afk)
             {
-                for(int i = 0; i < 10; i++)
+                for(int i = 0; i < 30; i++)
                 {
                     if(CursorInButton(LOWORD(lParam), HIWORD(lParam), i) && Buttons[i].state != 2) Buttons[i].state = 1;
                     else if(Buttons[i].state != 2) Buttons[i].state = 0;
+                }
+            }
+            if(open_inventory)
+            {
+                for(int i = 1; i < 256; i++)
+                {
+                    if(blocks[i].type == 0) selectCreateInventory = -1;
+                    if(LOWORD(lParam) >= createInventoryVertex[i].vertex[0] && LOWORD(lParam) <= createInventoryVertex[i].vertex[2] && HIWORD(lParam) >= createInventoryVertex[i].vertex[1] && HIWORD(lParam) <= createInventoryVertex[i].vertex[3])
+                    {
+                        selectCreateInventory = i;
+                        break;
+                    }
                 }
             }
         }
