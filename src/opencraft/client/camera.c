@@ -15,7 +15,7 @@ BOOL set_sound;
 RECT rcta;
 RECT rctb;
 
-struct SCamera camera = {128.5,128.5,65,0,0};
+struct SCamera camera = {128.5,128.5,65,90,90};
 
 void Camera_Apply()
 {

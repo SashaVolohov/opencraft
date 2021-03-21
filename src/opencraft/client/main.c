@@ -23,7 +23,7 @@
 
 #include "camera.h"
 
-#define OPENCRAFT_VERSION "0.0.23a_01"
+#define OPENCRAFT_VERSION "0.24_SURVIVAL_TEST"
 
 #define GAME_GENLWORLD 0
 #define GAME_PAUSE 1
@@ -94,6 +94,7 @@ void DisableOpenGL(HWND, HDC, HGLRC);
 float theta = 0.0f;
 
 float block[] = {0,0,0, 1,0,0, 1,1,0, 0,1,0, 0,0,1, 1,0,1, 1,1,1, 0,1,1};
+float block_small[] = {0,0,0, 0.5,0,0, 0.5,0.5,0, 0,0.5,0, 0,0,0.5, 0.5,0,0.5, 0.5,0.5,0.5, 0,0.5,0.5};
 float sprite_vertex[] = {0,0,0, 0.1,0,0, 0.1,0.1,0, 0,0.1,0, 0,0,0.1, 0.1,0,0.1, 0.1,0.1,0.1, 0,0.1,0.1};
 GLuint blockInd[] = {0,1,5, 5,4,0, 1,2,6, 6,5,1, 2,3,7, 7,6,2, 3,0,4, 4,7,3};
 float block_texture[] = {0,1, 1,1, 0,1, 1,1, 0,0, 1,0, 0,0, 1,0};
@@ -202,7 +203,7 @@ float man_left_hand_up_texture[] = {0.5625,0.78, 0.625,0.78, 0.625,0.66, 0.5625,
 float man_left_hand_down_texture[] = {0.5625,0.905, 0.625,0.785, 0.625,0.66, 0.5625,0.66, 0.5625,0.905, 0.625,0.905, 0.625,0.785, 0.5625,0.785};
 
 float cursor[] = {0,0, 32,0, 32,32, 0,32};
-float cursor_texture[] = {0,0, 0.06455,0, 0.06455,0.06455, 0,0.06455};
+float cursor_texture[] = {0,0, 0.064,0, 0.064,0.06455, 0,0.06455};
 
 float block_inventory[] = {0,0, 14, 8, 14, 23, 0, 18.5};
 float block_inventory_2[] = {14, 8, 28, 0, 28, 18.5, 14, 23};
@@ -412,6 +413,20 @@ int selCon;
 
 BOOL fly = FALSE;
 
+float rx = 0;
+float ry = 1;
+float rz = 0;
+int rstep = 0;
+
+int hp = 20;
+float heart[] = {0,0, 15,0, 15,15, 0,15};
+float heart_null_texture[] = {0.065,0, 0.0975,0, 0.0975,0.03, 0.065,0.03};
+float heart_null_new_texture[] = {0.0975,0, 0.13,0, 0.13,0.03, 0.0975,0.03};
+float heart_double_texture[] = {0.13,0, 0.1625,0, 0.1625,0.03, 0.13,0.03};
+float heart_double_new_texture[] = {0.1625,0, 0.195,0, 0.195,0.03, 0.1625,0.03};
+float heart_texture[] = {0.205,0, 0.24,0, 0.24,0.03, 0.205,0.03};
+float heart_new_texture[] = {0.24,0, 0.275,0, 0.275,0.03, 0.24,0.03};
+
 void GenerateNewChunk(int chunkx, int chunky)
 {
     int coolz = 0;
@@ -588,12 +603,14 @@ void GenerateNewChunk(int chunkx, int chunky)
             }
             for(int z = 0; z <= 255; z++)
             {
-                if(z == 0) world[chunkx][chunky][x][y][z] = 9;
+                /*if(z == 0) world[chunkx][chunky][x][y][z] = 9;
                 else if(z < coolz && z - coolz >= -3) world[chunkx][chunky][x][y][z] = 3;
                 else if(z < coolz && z - coolz < -3) world[chunkx][chunky][x][y][z] = 5;
                 else if(z == coolz && z <= 50) world[chunkx][chunky][x][y][z] = 10;
                 else if(z == coolz && z > 50) world[chunkx][chunky][x][y][z] = 2;
-                else if(z > coolz) world[chunkx][chunky][x][y][z] = 0;
+                else if(z > coolz) world[chunkx][chunky][x][y][z] = 0;*/
+                if(z == 20) world[chunkx][chunky][x][y][z] = 2;
+                else world[chunkx][chunky][x][y][z] = 0;
                 oldcoolz = coolz;
             }
         }
@@ -2004,7 +2021,127 @@ void Game_Show()
                 }
             }
         }
-        glEnable(GL_DEPTH_TEST);
+
+        glDisable(GL_LIGHT0);
+        glDisable(GL_LIGHTING);
+
+        glPushMatrix();
+            if(Inventory[select_inv].id == 0) glTranslatef(camera.x, camera.y+0.7, camera.z+1.5);
+            else glTranslatef(camera.x, camera.y+0.8, camera.z+1.3);
+            glRotatef(camera.Xrot, 1,0,0);
+            glRotatef(camera.Zrot, 0,0,1);
+
+            glTranslatef(rx, ry, rz);
+
+            if(!is_x && rstep != 4)
+            {
+                if(rstep == 0) rstep = 1;
+                if(rstep == 2) rstep = 3;
+            }
+
+            if(is_x && rstep == 4) rstep = 0;
+
+            if(rstep == 0)
+            {
+                rz -= 0.01;
+                rx += 0.01;
+                if(rz <= -0.1) rstep = 1;
+            }
+            if(rstep == 1)
+            {
+                rz += 0.01;
+                rx -= 0.01;
+                if(rz >= 0.0)
+                {
+                    rstep = 2;
+                    if(!is_x) rstep = 4;
+                }
+            }
+            if(rstep == 2)
+            {
+                rz += 0.01;
+                rx += 0.01;
+                if(rz >= 0.1) rstep = 3;
+            }
+            if(rstep == 3)
+            {
+                rz -= 0.01;
+                rx -= 0.01;
+                if(rz <= 0.0)
+                {
+                    rstep = 0;
+                    rx = 0;
+                    rz = 0;
+                    if(!is_x) rstep = 4;
+                }
+            }
+            if(Inventory[select_inv].id == 0)
+            {
+                glRotatef(45, 0,0,1);
+                glRotatef(25, 1,0,0);
+            }
+
+            glRotatef(-80, 0,1,0);
+
+            if(Inventory[select_inv].id == 0)
+            {
+
+                glVertexPointer(3, GL_FLOAT, 0, entity_man_hand);
+                glBindTexture(GL_TEXTURE_2D, man_texture);
+
+                glNormalPointer(GL_FLOAT, 0, normal);
+                glNormal3f(0,0,1);
+
+                glColor3f(0.7, 0.7, 0.7);
+
+                glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_texture);
+                glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+
+                glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_texture_2);
+                glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+
+                glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_texture_3);
+                glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+
+                glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_texture_4);
+                glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+
+                glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_up_texture);
+                glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                glTranslatef(0.0, 0.0, -0.7);
+                glTexCoordPointer(2, GL_FLOAT, 0, man_left_hand_down_texture);
+                glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+
+                glTranslatef(0.0, 0.0, 0.7);
+
+            }
+            else
+            {
+                glVertexPointer(3, GL_FLOAT, 0, block_small);
+                glBindTexture(GL_TEXTURE_2D, blocks[Inventory[select_inv].id].texture[0]);
+
+                glNormalPointer(GL_FLOAT, 0, normal);
+                glNormal3f(0,0,1);
+
+                glColor3f(0.7, 0.7, 0.7);
+                glTexCoordPointer(2, GL_FLOAT, 0, lava_UV);
+                glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_1, GL_UNSIGNED_INT, entity_man_head_ind_1);
+                glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_2);
+                glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_2, GL_UNSIGNED_INT, entity_man_head_ind_2);
+                glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_3);
+                glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_3, GL_UNSIGNED_INT, entity_man_head_ind_3);
+                glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_4);
+                glDrawElements(GL_TRIANGLES, entity_man_head_ind_cnt_4, GL_UNSIGNED_INT, entity_man_head_ind_4);
+                glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_5);
+                glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+                glTranslatef(0.0, 0.0, -0.5);
+                glTexCoordPointer(2, GL_FLOAT, 0, lava_UV_updn);
+                glDrawElements(GL_TRIANGLES, entity_man_head_up_cnt, GL_UNSIGNED_INT, entity_man_head_ind_up);
+            }
+        glPopMatrix();
+
+        glEnable(GL_LIGHT0);
         glEnable(GL_LIGHTING);
 
         for(int j = 0; j < 1500; j++)
@@ -2995,6 +3132,40 @@ void Menu_Show()
     }
 
     glDisable(GL_BLEND);
+
+    for(int i = 0; i < 10; i++)
+    {
+        if(hp > 2*i)
+        {
+            glVertexPointer(2, GL_FLOAT, 0, heart);
+            glTexCoordPointer(2, GL_FLOAT, 0, heart_texture);
+            glBindTexture(GL_TEXTURE_2D, icons_texture);
+            glPushMatrix();
+                glTranslatef(scrSize.x / 2 - 182.5 + i*16, scrSize.y - 65, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glPopMatrix();
+        }
+        else if(hp == 2*i)
+        {
+            glVertexPointer(2, GL_FLOAT, 0, heart);
+            glTexCoordPointer(2, GL_FLOAT, 0, heart_double_texture);
+            glBindTexture(GL_TEXTURE_2D, icons_texture);
+            glPushMatrix();
+                glTranslatef(scrSize.x / 2 - 182.5 + i*16, scrSize.y - 65, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glPopMatrix();
+        }
+        else
+        {
+            glVertexPointer(2, GL_FLOAT, 0, heart);
+            glTexCoordPointer(2, GL_FLOAT, 0, heart_null_texture);
+            glBindTexture(GL_TEXTURE_2D, icons_texture);
+            glPushMatrix();
+                glTranslatef(scrSize.x / 2 - 182.5 + i*16, scrSize.y - 65, 0);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glPopMatrix();
+        }
+    }
 
     glPushMatrix();
         glTranslatef(0,0,0);
@@ -4369,6 +4540,8 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     }
                 }
 
+                is_x = FALSE;
+
                 static float lastTime = 0.0f;
                 float currentTime = GetTickCount() * 0.001f;
                 if(currentTime - lastTime > 0.01f)
@@ -4625,7 +4798,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
                     }
                 }
                 if(is_x == FALSE) BASS_ChannelStop(chstep);
-                is_x = FALSE;
             }
             else
             {
@@ -4720,6 +4892,8 @@ int WINAPI WinMain(HINSTANCE hInstance,
                 glPopMatrix();
 
                 SwapBuffers(hDC);
+
+                is_x = FALSE;
                 static float lastTime = 0.0f;
                 float currentTime = GetTickCount() * 0.001f;
                 if(currentTime - lastTime > 0.01f)
@@ -4975,6 +5149,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
                 old_z = camera.z;
                 old_Xrot = camera.Xrot;
                 old_Zrot = camera.Zrot;
+                if(is_x == FALSE) BASS_ChannelStop(chstep);
                 }
             }
         }
@@ -5193,6 +5368,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     {
                         fly = !fly;
                     }
+                    break;
                 }
                 case VK_ESCAPE:
                 {
@@ -5223,6 +5399,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                         SetCursorPos((int)rctb.left + scrSize.x/2, (int)rctb.top + scrSize.y/2);
                         while (ShowCursor(FALSE) >= 0);
                     }
+                    break;
                 }
             }
             if(wParam == VK_F1 || wParam == VK_F2 || wParam == VK_F3 || wParam == VK_F4 || wParam == VK_F5 || wParam == VK_F6 || wParam == VK_F7 || wParam == VK_F8 || wParam == VK_F9 || wParam == VK_F10 || wParam == VK_F11 || wParam == VK_F12) F1_12_pressed = TRUE;
